@@ -74,59 +74,6 @@ namespace FpsRollbackNetcode
     public class PlayerState
     {
         public Vector3 Position = Vector3.Zero;
-
-        public PlayerState()
-        {
-            Position = Vector3.Zero;
-        }
-
-        //private PlayerInput? lastPlayerInput;
-
-        //public PlayerInput LastPlayerInput
-        //{
-        //    get
-        //    {
-        //        if(lastPlayerInput != null)
-        //            return lastPlayerInput.Clone();
-
-        //        return new PlayerInput { }; 
-        //    } set => lastPlayerInput = value; 
-        //}
-
-        //public void PredictUpdate(float delta)
-        //{
-        //    PlayerAction playerActions = LastPlayerInput.playerActions;
-
-        //    if (playerActions.HasFlag(PlayerAction.MoveForward))
-        //        Position.X += 1 * delta;
-
-        //    if (playerActions.HasFlag(PlayerAction.MoveBackward))
-        //        Position.X -= 1 * delta;
-
-        //    if (playerActions.HasFlag(PlayerAction.MoveRight))
-        //        Position.Y += 1 * delta;
-
-        //    if (playerActions.HasFlag(PlayerAction.MoveLeft))
-        //        Position.Y += 1 * delta;
-        //}
-
-        public void Update(float delta, PlayerInput playerInput)
-        {
-            PlayerAction playerActions = playerInput.playerActions;
-
-            if (playerActions.HasFlag(PlayerAction.MoveForward))
-                Position.X += 1* delta;
-
-            if (playerActions.HasFlag(PlayerAction.MoveBackward))
-                Position.X -= 1 * delta;
-
-            if (playerActions.HasFlag(PlayerAction.MoveRight))
-                Position.Y += 1 * delta;
-
-            if (playerActions.HasFlag(PlayerAction.MoveLeft))
-                Position.Y += 1 * delta;
-
-            //LastPlayerInput = playerInput;
-        }
+        public Vector3 Velocity = Vector3.Zero;       
     }
 }

@@ -13,10 +13,10 @@ namespace FpsRollbackNetcode
 	/// </summary>
 	public class Game : BlWindow3D
 	{
-        private const float TICKS_PER_SECOND = 128f;
+		private const float TICKS_PER_SECOND = 128f;
 		//private const float MAX_ROLLBACK_FRAMES = 10f;// 10 frames
 		//private const float MAX_ROLLBACK_TIME = (1000f / TICKS_PER_SECOND) * MAX_ROLLBACK_FRAMES;// 10 frames
-		private const float MAX_ROLLBACK_TIME = 800f;
+		private const float MAX_ROLLBACK_TIME = 100f;
 
 		string Help = @"
 Camera controls:
@@ -275,9 +275,9 @@ Fine control  -  Left-Shift
 
 			Graphics.FramePeriod = 0;// 1.0f/128f;
 
-            //IsFixedTimeStep = true;
-            //float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
-            GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, 10);
+									 //IsFixedTimeStep = true;
+									 //float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
+			GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, 10);
 			PlayerSimulator = new PlayerSimulator(GameStateManager);
 
 			//GameState = new GameState() 
@@ -336,7 +336,7 @@ Fine control  -  Left-Shift
 			//else
 				playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
 
-            GameState = GameStateManager.UpdateCurrentGameState((float)timeInfo.TotalGameTime.TotalMilliseconds, playerInput);
+			GameState = GameStateManager.UpdateCurrentGameState((float)timeInfo.TotalGameTime.TotalMilliseconds, playerInput);
 
 
 			//GameState = Simulation.Next((float)timeInfo.ElapsedGameTime.TotalMilliseconds, GameState, PlayerInput.CreatePlayerInput(FrameNum));
@@ -457,6 +457,9 @@ Fine control  -  Left-Shift
 
             var MyMenuText = $"FrameProcTime: {_frameProctime.TotalMilliseconds:0.0000}, ({1f / _frameProctime.TotalSeconds:0.00})\n" +
                 $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
+
+            //var MyMenuText = $"Position: {GameState.Players[0].Position.X:0.000}\n" +
+            //             $"Velocity: {GameState.Players[0].Velocity.X * 1000:0.000}";
 
             try
             {

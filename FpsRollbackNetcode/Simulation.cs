@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,30 +24,47 @@ namespace FpsRollbackNetcode
 
     public static class PlayerSimulation
     {
-        private const float MOVEMENT_SPEED = 0.001f;
+        const float SPEED = 0.00005f;
+        const float DRAG = 0.02f;
 
         public static PlayerState Next(float delta, PlayerState previous, PlayerInput playerInput)
         {
-            PlayerState next = new PlayerState()
+            var position = previous.Position;
+            var velocity = previous.Velocity;
+
+            velocity *= (1 - delta * DRAG);
+
+            var playerActions = playerInput.playerActions;
+
+            var direction = Vector3.Zero;
+
+            if (playerActions != PlayerAction.None)
             {
-                Position = previous.Position,
+                if (playerActions.HasFlag(PlayerAction.MoveForward))
+                    direction.Y = 1f;
+
+                if (playerActions.HasFlag(PlayerAction.MoveBackward))
+                    direction.Y = -1f;
+
+                if (playerActions.HasFlag(PlayerAction.MoveRight))
+                    direction.X = 1f;
+
+                if (playerActions.HasFlag(PlayerAction.MoveLeft))
+                    direction.X = -1f;
+
+                direction = Vector3.Normalize(direction);
+            }
+
+            velocity += (direction * SPEED) * delta;
+
+            position += velocity * delta;
+
+
+            return new PlayerState()
+            {
+                Position = position,
+                Velocity = velocity,
             };
-
-            var playerActions = playerInput.playerActions;        
-
-            if (playerActions.HasFlag(PlayerAction.MoveForward))
-                next.Position.Y += 1 * delta * MOVEMENT_SPEED;
-
-            if (playerActions.HasFlag(PlayerAction.MoveBackward))
-                next.Position.Y -= 1 * delta * MOVEMENT_SPEED;
-
-            if (playerActions.HasFlag(PlayerAction.MoveRight))
-                next.Position.X += 1 * delta * MOVEMENT_SPEED;
-
-            if (playerActions.HasFlag(PlayerAction.MoveLeft))
-                next.Position.X -= 1 * delta * MOVEMENT_SPEED;
-
-            return next;
-        }
+        }       
     }
 }
