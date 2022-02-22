@@ -273,10 +273,12 @@ Fine control  -  Left-Shift
 
 			//GuiControls.TryAdd("MyControl", guiCtrl);
 
-			Graphics.FramePeriod = 0;// 1.0f/128f;
+			Graphics.FramePeriod = 0;
 
-									 //IsFixedTimeStep = true;
-									 //float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
+			//Graphics.FramePeriod = 1f / TICKS_PER_SECOND;
+
+			//IsFixedTimeStep = true;
+			//float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
 			GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, 10);
 			PlayerSimulator = new PlayerSimulator(GameStateManager);
 
@@ -336,7 +338,7 @@ Fine control  -  Left-Shift
 			//else
 				playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
 
-			GameState = GameStateManager.UpdateCurrentGameState((float)timeInfo.TotalGameTime.TotalMilliseconds, playerInput);
+			GameState = GameStateManager.UpdateCurrentGameState((float)timeInfo.ElapsedGameTime.TotalMilliseconds, playerInput);
 
 
 			//GameState = Simulation.Next((float)timeInfo.ElapsedGameTime.TotalMilliseconds, GameState, PlayerInput.CreatePlayerInput(FrameNum));

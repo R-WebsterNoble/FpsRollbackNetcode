@@ -29,8 +29,6 @@ namespace FpsRollbackNetcode
             }
         }
 
-        float lastTickTime = 0;
-
         public CircularBuffer<Tick> GamesStates;
 
         public GameStateManager(float tickDuration, float maxRollbackTime, int playerCount)
@@ -137,21 +135,17 @@ namespace FpsRollbackNetcode
                 GamesStates[0].PlayerInputs[playerNum] = playerInput;
         }
 
-        public GameState UpdateCurrentGameState(float gameTime, PlayerInput playerInput) 
+        float _timeRamainingAfterProcessingFixedTicks = 0f;
+        public GameState UpdateCurrentGameState(float gameTime, PlayerInput playerInput)
         {
-            int expectedTicks = (int)MathF.Floor(gameTime / TickDuration);
-            var ticksToCatchUp = expectedTicks - TickNum;
-
+            _timeRamainingAfterProcessingFixedTicks += gameTime;
 
             PlayerInput[] playerInputs = new PlayerInput[PlayerCount];
             Array.Copy(LatestInputs, playerInputs, PlayerCount);
             playerInputs[0] = playerInput;
 
 
-            //if (ticksToCatchUp == 0)
-            //    playerInput = playerInput.Combine(newPlayerInput);
-            //else
-            for (int i = 0; i < ticksToCatchUp; i++)
+            while (_timeRamainingAfterProcessingFixedTicks >= TickDuration)
             {
                 PlayerInput[] tickPlayerInputs = new PlayerInput[PlayerCount];
                 Array.Copy(playerInputs, tickPlayerInputs, PlayerCount);
@@ -165,24 +159,11 @@ namespace FpsRollbackNetcode
                         PlayerInputs = tickPlayerInputs
                     });
                 TickNum++;
-                lastTickTime = gameTime;
-            }              
-            
 
-            //lock (this)
-            //{
-            //    newPlayerInput.tickNum = TickNum;
-            //    playerInput = playerInput.Combine(newPlayerInput);                
-            //}
+                _timeRamainingAfterProcessingFixedTicks -= TickDuration;
+            }
 
-            float deltaTime = gameTime - lastTickTime;
-
-            var gameState = Simulation.Next(deltaTime, Latest, playerInputs);            
-
-            //if (ticksToCatchUp != 0)                
-            //    playerInput = new PlayerInput();
-
-            return gameState;
+            return Simulation.Next(_timeRamainingAfterProcessingFixedTicks, Latest, playerInputs);
         }
 
         //public void Tick() 
