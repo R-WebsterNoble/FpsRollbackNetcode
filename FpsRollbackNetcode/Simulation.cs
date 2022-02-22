@@ -24,15 +24,15 @@ namespace FpsRollbackNetcode
 
     public static class PlayerSimulation
     {
-        const float SPEED = 0.00005f;
-        const float DRAG = 0.02f;
+        const float ACCELERATION = 0.01f / 1000f;
+        const float DRAG_COEFFICIENT = 0.005f;
 
         public static PlayerState Next(float delta, PlayerState previous, PlayerInput playerInput)
         {
+            var deltaSeconds = delta;// / 1000f;
+
             var position = previous.Position;
             var velocity = previous.Velocity;
-
-            velocity *= (1 - delta * DRAG);
 
             var playerActions = playerInput.playerActions;
 
@@ -41,23 +41,35 @@ namespace FpsRollbackNetcode
             if (playerActions != PlayerAction.None)
             {
                 if (playerActions.HasFlag(PlayerAction.MoveForward))
-                    direction.Y = 1f;
+                    direction.Y += 1f;
 
                 if (playerActions.HasFlag(PlayerAction.MoveBackward))
-                    direction.Y = -1f;
+                    direction.Y -= 1f;
 
                 if (playerActions.HasFlag(PlayerAction.MoveRight))
-                    direction.X = 1f;
+                    direction.X += 1f;
 
                 if (playerActions.HasFlag(PlayerAction.MoveLeft))
-                    direction.X = -1f;
+                    direction.X -= 1f;
 
-                direction = Vector3.Normalize(direction);
+                if(direction != Vector3.Zero)
+                    direction = Vector3.Normalize(direction);
+            }
+            else
+            {
+                // the player is not inputting any morevment actions 
+                if (velocity.LengthSquared() <= MathF.Pow(ACCELERATION * deltaSeconds, 2f)) // if applying one ticks worth of deceleration would result in the player accelerating in the opposite direction
+                    velocity = Vector3.Zero; // zero the velocity
+                else // if the player is moving
+                    direction = -Vector3.Normalize(velocity);  // act as if they are trying to move in the opposite direction of their current direction
+
             }
 
-            velocity += (direction * SPEED) * delta;
+            velocity += direction * ACCELERATION * deltaSeconds;
 
-            position += velocity * delta;
+            velocity *= 1f - DRAG_COEFFICIENT * deltaSeconds;
+
+            position += velocity * deltaSeconds;
 
 
             return new PlayerState()

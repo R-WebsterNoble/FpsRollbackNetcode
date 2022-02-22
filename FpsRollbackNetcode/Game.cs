@@ -457,11 +457,12 @@ Fine control  -  Left-Shift
             //    $"ModelLod: { (object)Model.LodTarget}\n" +
             //    $"ModelApparentSize: { (object)Model.ApparentSize }";
 
-            var MyMenuText = $"FrameProcTime: {_frameProctime.TotalMilliseconds:0.0000}, ({1f / _frameProctime.TotalSeconds:0.00})\n" +
-                $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
+            //var MyMenuText = $"FrameProcTime: {_frameProctime.TotalMilliseconds:0.0000}, ({1f / _frameProctime.TotalSeconds:0.00})\n" +
+            //    $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
 
-            //var MyMenuText = $"Position: {GameState.Players[0].Position.X:0.000}\n" +
-            //             $"Velocity: {GameState.Players[0].Velocity.X * 1000:0.000}";
+            var MyMenuText = $"Position: {GameState.Players[0].Position.LengthSquared():0.00000}\n" +
+                         $"Velocity: {GameState.Players[0].Velocity.LengthSquared()}\n" +
+                         $"{GameState.Players[0].Velocity == Vector3.Zero}";
 
             try
             {

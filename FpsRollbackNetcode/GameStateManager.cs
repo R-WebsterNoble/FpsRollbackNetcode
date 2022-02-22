@@ -138,6 +138,9 @@ namespace FpsRollbackNetcode
         float _timeRamainingAfterProcessingFixedTicks = 0f;
         public GameState UpdateCurrentGameState(float gameTime, PlayerInput playerInput)
         {
+            if (gameTime == 0)
+                return Latest;
+
             _timeRamainingAfterProcessingFixedTicks += gameTime;
 
             PlayerInput[] playerInputs = new PlayerInput[PlayerCount];
