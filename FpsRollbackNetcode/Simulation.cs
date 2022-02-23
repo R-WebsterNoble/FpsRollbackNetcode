@@ -25,7 +25,7 @@ namespace FpsRollbackNetcode
     public static class PlayerSimulation
     {
         const float ACCELERATION = 0.01f / 1000f;
-        const float DRAG_COEFFICIENT = 0.005f;
+        //const float DRAG_COEFFICIENT = 0.005f;
 
         public static PlayerState Next(float delta, PlayerState previous, PlayerInput playerInput)
         {
@@ -67,7 +67,13 @@ namespace FpsRollbackNetcode
 
             velocity += direction * ACCELERATION * deltaSeconds;
 
-            velocity *= 1f - DRAG_COEFFICIENT * deltaSeconds;
+            //velocity *= 1f - DRAG_COEFFICIENT * deltaSeconds;
+            const float MAX_VELOCITY = 0.002f;
+            if (velocity.Length() > MAX_VELOCITY)
+            {
+                velocity.Normalize();
+                velocity *= MAX_VELOCITY;
+            };
 
             position += velocity * deltaSeconds;
 
