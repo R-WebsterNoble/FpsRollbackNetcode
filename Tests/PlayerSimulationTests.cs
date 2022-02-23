@@ -8,11 +8,11 @@ namespace Tests;
 
 public class PlayerSimulationTests
 {
-    private readonly ITestOutputHelper output;
+    private readonly ITestOutputHelper _output;
 
     public PlayerSimulationTests(ITestOutputHelper output)
     {
-        this.output = output;
+        _output = output;
     }
 
     [Fact]
@@ -46,18 +46,18 @@ public class PlayerSimulationTests
 
             results[i] = playerState.Position.Y;
 
-            output.WriteLine($"{i+1:00}: ticksPerSecond = {ticksPerSecond:0000}, Position = {playerState.Position.Y:00.00}");
+            _output.WriteLine($"{i+1:00}: ticksPerSecond = {ticksPerSecond:0000}, Position = {playerState.Position.Y:00.00}");
         }
 
         var average = results[results.Length/2]; //median
 
         const float tolerance = 0.1f;
 
-        output.WriteLine($"average = {average}");
+        _output.WriteLine($"average = {average}");
         for (int i = 0; i < testRuns; i++)
         {
             float result = results[i];
-            output.WriteLine($"{i} = {result}");
+            _output.WriteLine($"{i} = {result}");
             Assert.InRange(result, average - tolerance, average + tolerance);
         }        
     }
