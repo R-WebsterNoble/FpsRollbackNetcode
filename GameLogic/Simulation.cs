@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FpsRollbackNetcode
+namespace GameLogic
 {
     public static class Simulation
     {

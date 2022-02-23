@@ -1,5 +1,5 @@
 using Xunit;
-using FpsRollbackNetcode;
+using GameLogic;
 using System.Linq;
 using Xunit.Abstractions;
 using System;

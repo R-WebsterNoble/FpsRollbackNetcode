@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using Blotch;
 using Microsoft.Xna.Framework.Input;
+using GameLogic;
 
 namespace FpsRollbackNetcode
 {

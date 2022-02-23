@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
-namespace FpsRollbackNetcode
+namespace GameLogic
 {
     public class Tick
     {
