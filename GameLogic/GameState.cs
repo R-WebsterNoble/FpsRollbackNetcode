@@ -48,6 +48,8 @@ namespace GameLogic
             return playerActions.ToString();
         }
 
+        public static PlayerInput[] Empty(int count) => Enumerable.Range(0, count).Select(_ => new PlayerInput()).ToArray();
+
         //public PlayerInput Combine(PlayerInput newPlayerInput)
         //{
         //    if (tickNum != newPlayerInput.tickNum)

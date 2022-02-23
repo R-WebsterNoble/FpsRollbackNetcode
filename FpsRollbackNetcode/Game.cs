@@ -17,7 +17,7 @@ namespace FpsRollbackNetcode
 		private const float TICKS_PER_SECOND = 128f;
 		//private const float MAX_ROLLBACK_FRAMES = 10f;// 10 frames
 		//private const float MAX_ROLLBACK_TIME = (1000f / TICKS_PER_SECOND) * MAX_ROLLBACK_FRAMES;// 10 frames
-		private const float MAX_ROLLBACK_TIME = 200f;
+		private const float MAX_ROLLBACK_TIME = 500f;
         private const int PLAYER_COUNT = 10;
         string Help = @"
 Camera controls:
@@ -51,9 +51,9 @@ Fine control  -  Left-Shift
 		public readonly Random Rand = new Random(0);
 
         public GameStateManager GameStateManager { get; private set; }
-		public PlayerSimulator PlayerSimulator { get; private set; }
+        public GameState RealTimeGameState { get; private set; }
 
-		private GameState GameState;
+        private GameState GameState;
         private int FrameNum;
 
         public Game()
@@ -276,12 +276,11 @@ Fine control  -  Left-Shift
 
 			Graphics.FramePeriod = 0;
 
-			//Graphics.FramePeriod = 1f / TICKS_PER_SECOND;
+			//Graphics.FramePeriod = 0.25f;
 
 			//IsFixedTimeStep = true;
 			//float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
 			GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT);
-			PlayerSimulator = new PlayerSimulator(GameStateManager);
 
 			//GameState = new GameState() 
 			//{
@@ -293,16 +292,32 @@ Fine control  -  Left-Shift
 			var initialGameState = GameStateManager.Latest;
 			for (int i = 0; i < initialGameState.Players.Length; i++)
 			{
-				var player = initialGameState.Players[i];
+				//var player = initialGameState.Players[i];
+
+				Vector3 colour = new Vector3((float)Rand.NextDouble(), (float)Rand.NextDouble(), (float)Rand.NextDouble());
+
 				var bunny = new BlSprite(Graphics, "player" + i);
 				bunny.LODs.Add(bunnyModel);
 				bunny.SetAllMaterialBlack();
-				bunny.Color = new Vector3((float)Rand.NextDouble(), (float)Rand.NextDouble(), (float)Rand.NextDouble());
+                bunny.Color = colour;
 
 				TopSprite.Add(bunny);
+
+				var realTimebunny = new BlSprite(Graphics, "realTimePlayer" + i);
+				realTimebunny.LODs.Add(bunnyModel);
+				realTimebunny.SetAllMaterialBlack();
+				realTimebunny.Color = colour;
+
+				TopSprite.Add(realTimebunny);
 			}
 
 			GameStateManager.Start();
+
+			for (int i = 1; i < GameStateManager.PlayerCount; i++)
+			{
+				var playerRollbackTicks = GameStateManager.GetDelayedPlayerRollbackTicks(i);
+				Console.WriteLine($"player : {i} = {playerRollbackTicks * GameStateManager.TickDuration}");
+			}
 		}
 
         protected override void FrameProc(GameTime timeInfo)
@@ -313,39 +328,35 @@ Fine control  -  Left-Shift
 			if (KeyPressed(Keys.R))
 			{
 				GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT);
-				PlayerSimulator = new PlayerSimulator(GameStateManager);
 			}
 
 			FrameNum++;
 
-			//timeInfo = new GameTime 
-			//{
-			//	TotalGameTime = TimeSpan.FromMilliseconds(FrameNum * GameStateManager.TickRate),
-			//	ElapsedGameTime = TimeSpan.FromMilliseconds(GameStateManager.TickRate)
-			//};
+            //timeInfo = new GameTime 
+            //{
+            //	TotalGameTime = TimeSpan.FromMilliseconds(FrameNum * GameStateManager.TickRate),
+            //	ElapsedGameTime = TimeSpan.FromMilliseconds(GameStateManager.TickRate)
+            //};
 
-			////if ((FrameNum + 1) % 100 == 1)
-			////{
-			////    //var rollbackTo = GameStateManager.TickNum - 5;// GameStateManager.MaxRollbackTicks;
-			////    var rollbackTo = GameStateManager.TickNum - (Math.Min(GameStateManager.MaxRollbackTicks, GameStateManager.TickNum));
+            ////if ((FrameNum + 1) % 100 == 1)
+            ////{
+            ////    //var rollbackTo = GameStateManager.TickNum - 5;// GameStateManager.MaxRollbackTicks;
+            ////    var rollbackTo = GameStateManager.TickNum - (Math.Min(GameStateManager.MaxRollbackTicks, GameStateManager.TickNum));
 
-			////    //GameStateManager.UpdateRollbackGameState(rollbackTo, 1, new PlayerInput { playerActions = PlayerAction.MoveForward });
-			////    GameStateManager.LatestInputs[1] = new PlayerInput { playerActions = GameStateManager.LatestInputs[1].playerActions ^ PlayerAction.MoveForward };
-			////    //inputs.playerActions = inputs.playerActions ^ PlayerAction.MoveForward;
-			////    GameStateManager.UpdateRollbackGameState(rollbackTo, 1, GameStateManager.LatestInputs[1]);
-			////}
+            ////    //GameStateManager.UpdateRollbackGameState(rollbackTo, 1, new PlayerInput { playerActions = PlayerAction.MoveForward });
+            ////    GameStateManager.LatestInputs[1] = new PlayerInput { playerActions = GameStateManager.LatestInputs[1].playerActions ^ PlayerAction.MoveForward };
+            ////    //inputs.playerActions = inputs.playerActions ^ PlayerAction.MoveForward;
+            ////    GameStateManager.UpdateRollbackGameState(rollbackTo, 1, GameStateManager.LatestInputs[1]);
+            ////}
+            float deltaTime = (float)timeInfo.ElapsedGameTime.TotalMilliseconds;
 
-			PlayerSimulator.SimulatePlayers();
 
-			PlayerInput playerInput;
-			//if (FrameNum < 11)
-			//	playerInput = new PlayerInput { playerActions = PlayerAction.MoveForward};
-			//else if(FrameNum == 11)
-			//	playerInput = new PlayerInput { playerActions = PlayerAction.None };
-			//else
-				playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
+			PlayerInput playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
+            (GameState, RealTimeGameState) = GameStateManager.UpdateCurrentGameState(deltaTime, playerInput);
 
-			GameState = GameStateManager.UpdateCurrentGameState((float)timeInfo.ElapsedGameTime.TotalMilliseconds, playerInput);
+			//RealTimeGameState = PlayerSimulator.SimulatePlayers(deltaTime);
+//RealTimeGameState = GameState;
+//			PlayerSimulator.SimulatePlayers();
 
 
 			//GameState = Simulation.Next((float)timeInfo.ElapsedGameTime.TotalMilliseconds, GameState, PlayerInput.CreatePlayerInput(FrameNum));
@@ -432,6 +443,8 @@ Fine control  -  Left-Shift
             for (int i = 0; i < GameState.Players.Length; i++)
 			{
 				TopSprite["player"+i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
+
+				TopSprite["realTimePlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(RealTimeGameState.Players[i].Position);
 			}
 
 			TopSprite.Draw();			
