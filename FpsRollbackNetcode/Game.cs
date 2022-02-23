@@ -316,16 +316,13 @@ Fine control  -  Left-Shift
 			var initialGameState = GameStateManager.Latest;
 			for (int i = 1; i < GameStateManager.PlayerCount; i++)
 			{
-				//var player = initialGameState.Players[i];
-
 				Vector3 colour = new Vector3((float)Rand.NextDouble(), (float)Rand.NextDouble(), (float)Rand.NextDouble());
 
-				var bunny = new BlSprite(Graphics, "player" + i);
-				bunny.LODs.Add(bunnyModel);
-				bunny.SetAllMaterialBlack();
-                bunny.Color = colour;
-
-				TopSprite.Add(bunny);
+				//var bunny = new BlSprite(Graphics, "player" + i);
+				//bunny.LODs.Add(bunnyModel);
+				//bunny.SetAllMaterialBlack();
+				//bunny.Color = colour;
+				//TopSprite.Add(bunny);
 
 				var realTimebunny = new BlSprite(Graphics, "realTimePlayer" + i);
 				realTimebunny.LODs.Add(bunnyModel);
@@ -481,7 +478,7 @@ Fine control  -  Left-Shift
 
 			for (int i = 1; i < GameState.Players.Length; i++)
 			{
-				TopSprite["player" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
+				//TopSprite["player" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
 
 				TopSprite["realTimePlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(RealTimeGameState.Players[i].Position);
 
