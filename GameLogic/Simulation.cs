@@ -24,7 +24,8 @@ namespace GameLogic
 
     public static class PlayerSimulation
     {
-        const float ACCELERATION = 0.01f / 1000f;
+        public static float ACCELERATION = 0.01f / 1000f;
+        public static float MAX_VELOCITY = 0.002f;
         //const float DRAG_COEFFICIENT = 0.005f;
 
         public static PlayerState Next(float delta, PlayerState previous, PlayerInput playerInput)
@@ -68,7 +69,7 @@ namespace GameLogic
             velocity += direction * ACCELERATION * deltaSeconds;
 
             //velocity *= 1f - DRAG_COEFFICIENT * deltaSeconds;
-            const float MAX_VELOCITY = 0.002f;
+            
             if (velocity.Length() > MAX_VELOCITY)
             {
                 velocity.Normalize();

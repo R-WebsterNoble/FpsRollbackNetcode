@@ -22,11 +22,18 @@ namespace GameLogic
 
         public CircularBuffer<Tick> GamesStates;
 
-        public GameStateManager(float tickDuration, float maxRollbackTime, int playerCount)
+        float _timeRamainingAfterProcessingFixedTicks = 0f;
+        private GameState _lastRealTimeTick;
+
+        CircularBuffer<PlayerInput[]> delayedPlayerActionsBuffer;
+        private readonly float _wiggleFrequncy;
+
+        public GameStateManager(float tickDuration, float maxRollbackTime, int playerCount, float wiggleFrequncy)
         {
             TickDuration = tickDuration;
             MaxRollbackTime = maxRollbackTime;
             PlayerCount = playerCount;
+            _wiggleFrequncy = wiggleFrequncy;
             var rand = new Random(0);
 
             MaxRollbackTicks = (int)MathF.Floor(MaxRollbackTime / TickDuration);
@@ -200,10 +207,7 @@ namespace GameLogic
                 GamesStates[0].PlayerInputs[playerNum] = playerInput;
         }
 
-        float _timeRamainingAfterProcessingFixedTicks = 0f;
-        private GameState _lastRealTimeTick;
 
-        CircularBuffer<PlayerInput[]> delayedPlayerActionsBuffer;
 
         public (GameState, GameState) UpdateCurrentGameState(float gameTime, PlayerInput playerInput)
         {
@@ -218,7 +222,7 @@ namespace GameLogic
 
             PlayerAction GetAction(int tickNum)
             {
-                return (tickNum * TickDuration) % 2000f < 1000f ? PlayerAction.MoveForward : PlayerAction.MoveBackward;
+                return (tickNum * TickDuration) % _wiggleFrequncy < _wiggleFrequncy/2f ? PlayerAction.MoveForward : PlayerAction.MoveBackward;
             }
 
             PlayerInput[] MakeInputs(PlayerAction action)

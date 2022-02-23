@@ -1,25 +1,34 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Content;
-using System;
-using System.Collections.Generic;
 using Blotch;
 using Microsoft.Xna.Framework.Input;
 using GameLogic;
 
 namespace FpsRollbackNetcode
 {
-	/// <summary>
-	/// A 3D Window
-	/// </summary>
-	public class Game : BlWindow3D
+    /// <summary>
+    /// A 3D Window
+    /// </summary>
+    public class Game : BlWindow3D
 	{
 		private const float TICKS_PER_SECOND = 128f;
 		//private const float MAX_ROLLBACK_FRAMES = 10f;// 10 frames
 		//private const float MAX_ROLLBACK_TIME = (1000f / TICKS_PER_SECOND) * MAX_ROLLBACK_FRAMES;// 10 frames
 		private const float MAX_ROLLBACK_TIME = 500f;
         private const int PLAYER_COUNT = 10;
-        string Help = @"
+
+		private const float ACCELERATION = 0.01f / 1000f;
+		private const float MAX_VELOCITY = 0.002f;
+
+		private const float SMOOTHING_LERP = 0.01f;
+
+		private const float SMOOTHING_LINEAR = MAX_VELOCITY * 2f;
+
+		public const float WIGGLE_FREQUENCY = 2000f;
+
+
+		string Help = @"
 Camera controls:
 Dolly  -  Wheel
 Zoom   -  Left-CTRL-wheel
@@ -45,12 +54,15 @@ Fine control  -  Left-Shift
 		private MouseState _previousMouseState;
 		private KeyboardState _keyboardState;
 		private KeyboardState _previousKeyboardState;
-
+        private PlayerState[] SmoothedPlayers;
         private TimeSpan _frameProctime;
 
 		public readonly Random Rand = new Random(0);
 
         public GameStateManager GameStateManager { get; private set; }
+
+        private ResycSmoothing ResycSmoothing;
+
         public GameState RealTimeGameState { get; private set; }
 
         private GameState GameState;
@@ -58,6 +70,8 @@ Fine control  -  Left-Shift
 
         public Game()
 		{
+			PlayerSimulation.MAX_VELOCITY = MAX_VELOCITY;
+			PlayerSimulation.ACCELERATION = ACCELERATION;
 		}
 
 		/// <summary>
@@ -280,12 +294,14 @@ Fine control  -  Left-Shift
 
 			//IsFixedTimeStep = true;
 			//float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
-			GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT);
+			GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT, WIGGLE_FREQUENCY);
+
+			ResycSmoothing = new ResycSmoothing(GameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
 
 			//GameState = new GameState() 
 			//{
 			//	Players = Enumerable.Range(0, 10).Select(i => new PlayerState() { Position = new Vector3((float)Rand.NextDouble()-0.5f, (float)Rand.NextDouble()-0.5f, 0f) }).ToArray()
-   //         };
+			//         };
 
 			var bunnyModel = Content.Load<Model>("bunny");
 
@@ -307,8 +323,13 @@ Fine control  -  Left-Shift
 				realTimebunny.LODs.Add(bunnyModel);
 				realTimebunny.SetAllMaterialBlack();
 				realTimebunny.Color = colour;
-
 				TopSprite.Add(realTimebunny);
+
+				var smoothedBuny = new BlSprite(Graphics, "smoothedPlayer" + i);
+				smoothedBuny.LODs.Add(bunnyModel);
+				smoothedBuny.SetAllMaterialBlack();
+				smoothedBuny.Color = colour;
+				TopSprite.Add(smoothedBuny);
 			}
 
 			GameStateManager.Start();
@@ -327,7 +348,8 @@ Fine control  -  Left-Shift
 
 			if (KeyPressed(Keys.R))
 			{
-				GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT);
+				GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT, WIGGLE_FREQUENCY);
+				ResycSmoothing = new ResycSmoothing(GameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
 			}
 
 			FrameNum++;
@@ -353,6 +375,7 @@ Fine control  -  Left-Shift
 
 			PlayerInput playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
             (GameState, RealTimeGameState) = GameStateManager.UpdateCurrentGameState(deltaTime, playerInput);
+			SmoothedPlayers = ResycSmoothing.SmoothPlayers(GameState.Players,deltaTime);
 
 			//RealTimeGameState = PlayerSimulator.SimulatePlayers(deltaTime);
 //RealTimeGameState = GameState;
@@ -440,11 +463,15 @@ Fine control  -  Left-Shift
 			var hudDist = (float)-(Graphics.CurrentNearClip + Graphics.CurrentFarClip) / 2;
 			HudBackground.Matrix = Matrix.CreateScale(.4f, .4f, .4f) * Matrix.CreateTranslation(0, 0, hudDist);
 
-            for (int i = 0; i < GameState.Players.Length; i++)
+			TopSprite["player0"].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[0].Position);
+
+			for (int i = 1; i < GameState.Players.Length; i++)
 			{
-				TopSprite["player"+i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
+				//TopSprite["player" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
 
 				TopSprite["realTimePlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(RealTimeGameState.Players[i].Position);
+
+				TopSprite["smoothedPlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(SmoothedPlayers[i].Position);
 			}
 
 			TopSprite.Draw();			
