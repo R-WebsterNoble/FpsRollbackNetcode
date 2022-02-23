@@ -23,7 +23,8 @@ namespace GameLogic
                 var smootheePos = _smoothedPlayers[i].Position;
                 var targetPos = players[i].Position;
 
-                _smoothedPlayers[i].Position = Vector3.Lerp(smootheePos, targetPos, deltaTime * _lerp);
+                float amount = MathF.Min(deltaTime * _lerp, 1f);// clamp lerp amount to a max of 1
+                _smoothedPlayers[i].Position = Vector3.Lerp(smootheePos, targetPos, amount);
 
                 var linearDirection = targetPos - smootheePos;
                 if (linearDirection == Vector3.Zero)
