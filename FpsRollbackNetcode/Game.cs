@@ -117,7 +117,7 @@ Fine control  -  Left-Shift
 			//var bunny = Content.Load<Model>("bunny");
 			//TopSprite.Add("bunny", bunny);
 
-			var floor = new BlSprite(Graphics, "floor");
+			//var floor = new BlSprite(Graphics, "floor");
 			var plane = Content.Load<Model>("Plane");
 			var sphere = Content.Load<Model>("uv_sphere_192x96");
 			var MyTexture = Graphics.LoadFromImageFile("Content/image_with_alpha.png");
@@ -125,11 +125,11 @@ Fine control  -  Left-Shift
 			//
 			// Create floor
 			//
-			floor.LODs.Add(plane);
-			floor.Mipmap = new BlMipmap(Graphics, MyTexture);
-			floor.SetAllMaterialBlack();
-			floor.EmissiveColor = new Vector3(1, 1, 1);
-			TopSprite.Add("floor", floor);
+			//floor.LODs.Add(plane);
+			//floor.Mipmap = new BlMipmap(Graphics, MyTexture);
+			//floor.SetAllMaterialBlack();
+			//floor.EmissiveColor = new Vector3(1, 1, 1);
+			//TopSprite.Add("floor", floor);
 
 			//
 			// Create parent
@@ -521,23 +521,23 @@ Fine control  -  Left-Shift
             //var MyMenuText = $"FrameProcTime: {_frameProctime.TotalMilliseconds:0.0000}, ({1f / _frameProctime.TotalSeconds:0.00})\n" +
             //    $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
 
-						var MyMenuText = $"Position: {GameState.Players[0].Position.LengthSquared():0.00000}\n" +
-			 $"Velocity: {GameState.Players[0].Velocity.LengthSquared()}\n" +
-			 $"{GameState.Players[0].Velocity == Vector3.Zero}";
+            //var MyMenuText = $"Position: {GameState.Players[0].Position.LengthSquared():0.00000}\n" +
+            // $"Velocity: {GameState.Players[0].Velocity.LengthSquared()}\n" +
+            // $"{GameState.Players[0].Velocity == Vector3.Zero}";
 
-			try
-            {
-                // handle undrawable characters for the specified font(like the infinity symbol)
-                try
-                {
-                    Graphics.DrawText(MyMenuText, Font, new Vector2(50, 50));
-                }
-                catch { }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+            //try
+            //{
+            //    handle undrawable characters for the specified font(like the infinity symbol)
+            //    try
+            //        {
+            //            Graphics.DrawText(MyMenuText, Font, new Vector2(50, 50));
+            //        }
+            //        catch { }
+            //}
+            //catch (Exception e)
+            //{
+            //    Console.WriteLine(e);
+            //}
 
             /*
 			Console.WriteLine("{0}  {1}  {2}  {3}  {4}",
