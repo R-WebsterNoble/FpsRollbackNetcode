@@ -361,7 +361,7 @@ Fine control  -  Left-Shift
 				//Console.WriteLine(mouseDelta);
 				Mouse.SetPosition(windowCenter.X, windowCenter.Y);
 
-				if(!KeyPressed(Keys.Space))
+				if(!KeyPressed(Keys.Space)) // Don't move camera on first frame
 					Graphics.AdjustCameraPan(mouseDelta.X * MathF.PI * 2, mouseDelta.Y * MathF.PI * 2);
 
 				//Graphics.TargetEye = new Vector3(0f, -5f, 5f );
