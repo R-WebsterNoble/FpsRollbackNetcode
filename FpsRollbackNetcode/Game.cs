@@ -16,9 +16,9 @@ namespace FpsRollbackNetcode
 		private const float TICKS_PER_SECOND = 128f;
 		//private const float MAX_ROLLBACK_FRAMES = 10f;// 10 frames
 		//private const float MAX_ROLLBACK_TIME = (1000f / TICKS_PER_SECOND) * MAX_ROLLBACK_FRAMES;// 10 frames
-		private const float MAX_ROLLBACK_TIME = 100f;
-
-		string Help = @"
+		private const float MAX_ROLLBACK_TIME = 200f;
+        private const int PLAYER_COUNT = 10;
+        string Help = @"
 Camera controls:
 Dolly  -  Wheel
 Zoom   -  Left-CTRL-wheel
@@ -279,7 +279,7 @@ Fine control  -  Left-Shift
 
 			//IsFixedTimeStep = true;
 			//float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
-			GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, 10);
+			GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT);
 			PlayerSimulator = new PlayerSimulator(GameStateManager);
 
 			//GameState = new GameState() 
@@ -308,6 +308,12 @@ Fine control  -  Left-Shift
 		{
 			_keyboardState = Keyboard.GetState();
 			_mouseState = Mouse.GetState();
+
+			if (KeyPressed(Keys.R))
+			{
+				GameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT);
+				PlayerSimulator = new PlayerSimulator(GameStateManager);
+			}
 
 			FrameNum++;
 
