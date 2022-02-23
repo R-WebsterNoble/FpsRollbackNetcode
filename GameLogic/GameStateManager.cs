@@ -209,7 +209,7 @@ namespace GameLogic
 
 
 
-        public (GameState, GameState) UpdateCurrentGameState(float gameTime, PlayerInput playerInput)
+        public (GameState, GameState) UpdateCurrentGameState(float gameTime, PlayerInput playerInput, bool controllAll)
         {
             if (gameTime == 0)
                 return (Latest, Latest);
@@ -222,6 +222,8 @@ namespace GameLogic
 
             PlayerAction GetAction(int tickNum)
             {
+                if (controllAll)
+                    return playerInput.playerActions;
                 return (tickNum * TickDuration) % _wiggleFrequncy < _wiggleFrequncy/2f ? PlayerAction.MoveForward : PlayerAction.MoveBackward;
             }
 

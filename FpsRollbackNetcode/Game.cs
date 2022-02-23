@@ -67,6 +67,7 @@ Fine control  -  Left-Shift
 
         private GameState GameState;
         private int FrameNum;
+        private bool constrollAll = false;
 
         public Game()
 		{
@@ -305,8 +306,15 @@ Fine control  -  Left-Shift
 
 			var bunnyModel = Content.Load<Model>("bunny");
 
+			var playerBunny = new BlSprite(Graphics, "player0");
+			playerBunny.LODs.Add(bunnyModel);
+			playerBunny.SetAllMaterialBlack();
+			playerBunny.Color = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+
+			TopSprite.Add(playerBunny);
+
 			var initialGameState = GameStateManager.Latest;
-			for (int i = 0; i < initialGameState.Players.Length; i++)
+			for (int i = 1; i < GameStateManager.PlayerCount; i++)
 			{
 				//var player = initialGameState.Players[i];
 
@@ -352,6 +360,12 @@ Fine control  -  Left-Shift
 				ResycSmoothing = new ResycSmoothing(GameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
 			}
 
+			if (KeyPressed(Keys.C))
+			{
+				constrollAll = !constrollAll;
+			}
+
+
 			FrameNum++;
 
             //timeInfo = new GameTime 
@@ -374,7 +388,7 @@ Fine control  -  Left-Shift
 
 
 			PlayerInput playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
-            (GameState, RealTimeGameState) = GameStateManager.UpdateCurrentGameState(deltaTime, playerInput);
+            (GameState, RealTimeGameState) = GameStateManager.UpdateCurrentGameState(deltaTime, playerInput, constrollAll);
 			SmoothedPlayers = ResycSmoothing.SmoothPlayers(GameState.Players,deltaTime);
 
 			//RealTimeGameState = PlayerSimulator.SimulatePlayers(deltaTime);
@@ -467,7 +481,7 @@ Fine control  -  Left-Shift
 
 			for (int i = 1; i < GameState.Players.Length; i++)
 			{
-				//TopSprite["player" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
+				TopSprite["player" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
 
 				TopSprite["realTimePlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(RealTimeGameState.Players[i].Position);
 
@@ -507,11 +521,11 @@ Fine control  -  Left-Shift
             //var MyMenuText = $"FrameProcTime: {_frameProctime.TotalMilliseconds:0.0000}, ({1f / _frameProctime.TotalSeconds:0.00})\n" +
             //    $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
 
-            var MyMenuText = $"Position: {GameState.Players[0].Position.LengthSquared():0.00000}\n" +
-                         $"Velocity: {GameState.Players[0].Velocity.LengthSquared()}\n" +
-                         $"{GameState.Players[0].Velocity == Vector3.Zero}";
+						var MyMenuText = $"Position: {GameState.Players[0].Position.LengthSquared():0.00000}\n" +
+			 $"Velocity: {GameState.Players[0].Velocity.LengthSquared()}\n" +
+			 $"{GameState.Players[0].Velocity == Vector3.Zero}";
 
-            try
+			try
             {
                 // handle undrawable characters for the specified font(like the infinity symbol)
                 try
