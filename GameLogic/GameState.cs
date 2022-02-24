@@ -5,13 +5,13 @@ namespace GameLogic;
 
 public class Tick
 {
-    public int TickNum;
     public GameState GameState;
     public PlayerInput[] PlayerInputs;
+    public int TickNum;
 
     public override string ToString()
     {
-        return  $"{TickNum}:{(string.Join(',', PlayerInputs.Select((p, i) => $"{i}:{p.PlayerActions}")))}";
+        return $"{TickNum}:{string.Join(',', PlayerInputs.Select((p, i) => $"{i}:{p.PlayerActions}"))}";
     }
 }
 
@@ -25,7 +25,7 @@ public class PlayerInput
     public PlayerAction PlayerActions;
 
     public static PlayerInput CreatePlayerInput(KeyboardState keyboard)
-    {      
+    {
         var playerInput = new PlayerInput();
 
         if (keyboard.IsKeyDown(Keys.W))
@@ -48,7 +48,10 @@ public class PlayerInput
         return PlayerActions.ToString();
     }
 
-    public static PlayerInput[] Empty(int count) => Enumerable.Range(0, count).Select(_ => new PlayerInput()).ToArray();
+    public static PlayerInput[] Empty(int count)
+    {
+        return Enumerable.Range(0, count).Select(_ => new PlayerInput()).ToArray();
+    }
 
     //public PlayerInput Combine(PlayerInput newPlayerInput)
     //{
@@ -76,5 +79,5 @@ public enum PlayerAction
 public class PlayerState
 {
     public Vector3 Position = Vector3.Zero;
-    public Vector3 Velocity = Vector3.Zero;       
+    public Vector3 Velocity = Vector3.Zero;
 }

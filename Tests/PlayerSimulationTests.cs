@@ -1,7 +1,7 @@
-using Xunit;
-using GameLogic;
-using Xunit.Abstractions;
 using System;
+using GameLogic;
+using Xunit;
+using Xunit.Abstractions;
 
 namespace Tests;
 
@@ -22,7 +22,7 @@ public class PlayerSimulationTests
 
         for (var i = 0; i < testRuns; i++)
         {
-            var ticksPerSecond = MathF.Pow(2, i+1);
+            var ticksPerSecond = MathF.Pow(2, i + 1);
 
             var tickDuration = 1024f / ticksPerSecond;
 
@@ -33,7 +33,7 @@ public class PlayerSimulationTests
             var playerState = new PlayerState();
             while (timeElapsed < totalSimulationTime)
             {
-                var moveForward = ((int)timeElapsed % 1000) <= 500;
+                var moveForward = (int)timeElapsed % 1000 <= 500;
                 var playerInput = new PlayerInput
                 {
                     PlayerActions = moveForward ? PlayerAction.MoveForward : PlayerAction.None
@@ -45,10 +45,11 @@ public class PlayerSimulationTests
 
             results[i] = playerState.Position.Y;
 
-            _output.WriteLine($"{i+1:00}: ticksPerSecond = {ticksPerSecond:0000}, Position = {playerState.Position.Y:00.00}");
+            _output.WriteLine(
+                $"{i + 1:00}: ticksPerSecond = {ticksPerSecond:0000}, Position = {playerState.Position.Y:00.00}");
         }
 
-        var average = results[results.Length/2]; //median
+        var average = results[results.Length / 2]; //median
 
         const float tolerance = 0.1f;
 
@@ -58,6 +59,6 @@ public class PlayerSimulationTests
             var result = results[i];
             _output.WriteLine($"{i} = {result}");
             Assert.InRange(result, average - tolerance, average + tolerance);
-        }        
+        }
     }
 }

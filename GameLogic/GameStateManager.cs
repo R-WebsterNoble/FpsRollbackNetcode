@@ -1,27 +1,17 @@
-﻿using Microsoft.Xna.Framework;
+﻿using CircularBuffer;
+using Microsoft.Xna.Framework;
 
 namespace GameLogic;
 
 public class GameStateManager
 {
-    public GameState Latest => GamesStates.Front().GameState;
-
-    public PlayerInput[] LatestInputs => GamesStates.Front().PlayerInputs;
-
-    public int TickNum { get; private set; }
-    public float TickDuration { get; }
-    public float MaxRollbackTime { get; }
-    public int PlayerCount { get; }
-
-    public int MaxRollbackTicks { get; private set; }
-
-    public CircularBuffer<Tick> GamesStates;
-
-    private float _timeRemainingAfterProcessingFixedTicks;
+    private readonly CircularBuffer<PlayerInput[]> _delayedPlayerActionsBuffer;
+    private readonly float _wiggleFrequency;
     private GameState _lastRealTimeTick;
 
-    private CircularBuffer<PlayerInput[]> _delayedPlayerActionsBuffer;
-    private readonly float _wiggleFrequency;
+    private float _timeRemainingAfterProcessingFixedTicks;
+
+    public CircularBuffer<Tick> GamesStates;
 
     public GameStateManager(float tickDuration, float maxRollbackTime, int playerCount, float wiggleFrequency)
     {
@@ -34,44 +24,52 @@ public class GameStateManager
         MaxRollbackTicks = (int)MathF.Floor(MaxRollbackTime / TickDuration);
         GamesStates = new CircularBuffer<Tick>(MaxRollbackTicks + 1);
 
-        var gameState = new GameState()
+        var gameState = new GameState
         {
             //Players = Enumerable.Range(0, playerCount).Select(_ => new PlayerState() { Position = new Vector3((float)rand.NextDouble() - 0.5f, (float)rand.NextDouble() - 0.5f, 0f) }).ToArray()
-            Players = Enumerable.Range(0, playerCount).Select((_, i) => new PlayerState() { Position = new Vector3 { X = ((5f / playerCount) * i) } }).ToArray()
+            Players = Enumerable.Range(0, playerCount)
+                .Select((_, i) => new PlayerState { Position = new Vector3 { X = 5f / playerCount * i } }).ToArray()
         };
 
-        var playerInputs = Enumerable.Range(0, playerCount).Select(_ => new PlayerInput() { PlayerActions = PlayerAction.None }).ToArray();
+        var playerInputs = Enumerable.Range(0, playerCount)
+            .Select(_ => new PlayerInput { PlayerActions = PlayerAction.None }).ToArray();
 
         for (var i = 0; i <= MaxRollbackTicks; i++)
-        {
             GamesStates.PushFront(new Tick { TickNum = i, GameState = gameState, PlayerInputs = playerInputs });
-        }
 
         _lastRealTimeTick = Latest;
 
         _delayedPlayerActionsBuffer = new CircularBuffer<PlayerInput[]>(MaxRollbackTicks);
-        for (var i = 0; i < MaxRollbackTicks; i++)
-        {
-            _delayedPlayerActionsBuffer.PushBack(PlayerInput.Empty(PlayerCount));
-        }
-    }     
+        for (var i = 0; i < MaxRollbackTicks; i++) _delayedPlayerActionsBuffer.PushBack(PlayerInput.Empty(PlayerCount));
+    }
+
+    public GameState Latest => GamesStates.Front().GameState;
+
+    public PlayerInput[] LatestInputs => GamesStates.Front().PlayerInputs;
+
+    public int TickNum { get; private set; }
+    public float TickDuration { get; }
+    public float MaxRollbackTime { get; }
+    public int PlayerCount { get; }
+
+    public int MaxRollbackTicks { get; }
 
     public void UpdateRollbackGameState(int frameNum, int playerNum, PlayerInput playerInput)
     {
         var ticksToRollback = TickNum - frameNum;
 
         if (ticksToRollback > MaxRollbackTicks)
-            throw new InvalidOperationException("Unaable to roll back to frame because this would require that we roll back more than MaxRollbackTicks")
+            throw new InvalidOperationException(
+                "Unaable to roll back to frame because this would require that we roll back more than MaxRollbackTicks")
             {
-                Data = {
+                Data =
+                {
                     ["frameNum"] = frameNum,
                     ["ticksToRollback"] = ticksToRollback,
                     ["MaxRollbackTicks"] = MaxRollbackTicks
                 }
-            };         
+            };
 
-        // if (ticksToRollback != 0)
-        // {
         for (var i = ticksToRollback - 1; i >= 0; i--)
         {
             var gameTickToUpdate = GamesStates[i];
@@ -85,13 +83,10 @@ public class GameStateManager
                 PlayerInputs = gameTickToUpdate.PlayerInputs
             };
         }
-        // }
-        // else
-        //     GamesStates[0].PlayerInputs[playerNum] = playerInput;
     }
 
 
-    public (GameState, GameState) UpdateCurrentGameState(float gameTime, PlayerInput playerInput, bool controllAll)
+    public (GameState, GameState) UpdateCurrentGameState(float gameTime, PlayerInput playerInput, bool controlAll)
     {
         if (gameTime == 0)
             return (Latest, Latest);
@@ -104,14 +99,16 @@ public class GameStateManager
 
         PlayerAction GetAction(int tickNum)
         {
-            if (controllAll)
+            if (controlAll)
                 return playerInput.PlayerActions;
-            return (tickNum * TickDuration) % _wiggleFrequency < _wiggleFrequency/2f ? PlayerAction.MoveForward : PlayerAction.MoveBackward;
+            return tickNum * TickDuration % _wiggleFrequency < _wiggleFrequency / 2f
+                ? PlayerAction.MoveForward
+                : PlayerAction.MoveBackward;
         }
 
         PlayerInput[] MakeInputs(PlayerAction action)
         {
-            return Enumerable.Range(0, PlayerCount).Select(_ => new PlayerInput() { PlayerActions = action }).ToArray();
+            return Enumerable.Range(0, PlayerCount).Select(_ => new PlayerInput { PlayerActions = action }).ToArray();
         }
 
         var action = GetAction(TickNum);
@@ -150,13 +147,12 @@ public class GameStateManager
             _timeRemainingAfterProcessingFixedTicks -= TickDuration;
         }
 
-        return (Simulation.Next(_timeRemainingAfterProcessingFixedTicks, Latest, playerInputs), Simulation.Next(_timeRemainingAfterProcessingFixedTicks, _lastRealTimeTick, inputs));
-
-
+        return (Simulation.Next(_timeRemainingAfterProcessingFixedTicks, Latest, playerInputs),
+            Simulation.Next(_timeRemainingAfterProcessingFixedTicks, _lastRealTimeTick, inputs));
     }
 
     public int GetDelayedPlayerRollbackTicks(int playerNum)
     {
-        return (MaxRollbackTicks / PlayerCount) * playerNum;
+        return MaxRollbackTicks / PlayerCount * playerNum;
     }
 }
