@@ -29,7 +29,7 @@ public class Game : BlWindow3D
     public const float WIGGLE_FREQUENCY = 2000f;
 
     private readonly float _skyboxDiameter = 1000000f;
-    // private TimeSpan _frameProctime;
+    // private TimeSpan _frameProcTime;
 
     public readonly Random Rand = new(0);
     private bool _controlAll;
@@ -69,7 +69,7 @@ public class Game : BlWindow3D
 // ";
 
     private BlSprite _topSprite;
-    private int _delay = 0;
+    private int _delay;
 
     public Game()
     {
@@ -264,7 +264,7 @@ public class Game : BlWindow3D
         };
         _skybox.DrawCleanup = _ =>
         {
-            // retore default settings
+            // restore default settings
 
             Graphics.GraphicsDevice.DepthStencilState = Graphics.DepthStencilStateEnabled;
             Graphics.GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -323,17 +323,17 @@ public class Game : BlWindow3D
             //bunny.Color = colour;
             //TopSprite.Add(bunny);
 
-            var realTimebunny = new BlSprite(Graphics, "realTimePlayer" + i);
-            realTimebunny.LODs.Add(bunnyModel);
-            realTimebunny.SetAllMaterialBlack();
-            realTimebunny.Color = colour;
-            _topSprite.Add(realTimebunny);
+            var realTimeBunny = new BlSprite(Graphics, "realTimePlayer" + i);
+            realTimeBunny.LODs.Add(bunnyModel);
+            realTimeBunny.SetAllMaterialBlack();
+            realTimeBunny.Color = colour;
+            _topSprite.Add(realTimeBunny);
 
-            var smoothedBuny = new BlSprite(Graphics, "smoothedPlayer" + i);
-            smoothedBuny.LODs.Add(bunnyModel);
-            smoothedBuny.SetAllMaterialBlack();
-            smoothedBuny.Color = colour;
-            _topSprite.Add(smoothedBuny);
+            var smoothedBunny = new BlSprite(Graphics, "smoothedPlayer" + i);
+            smoothedBunny.LODs.Add(bunnyModel);
+            smoothedBunny.SetAllMaterialBlack();
+            smoothedBunny.Color = colour;
+            _topSprite.Add(smoothedBunny);
         }
 
         for (var i = 1; i < _gameStateManager.PlayerCount; i++)
@@ -380,7 +380,7 @@ public class Game : BlWindow3D
 
         _smoothedPlayers = _resycSmoothing.SmoothPlayers(_delayedGameState.Players, deltaTime);
 
-        // _frameProctime = timeInfo.ElapsedGameTime;
+        // _frameProcTime = timeInfo.ElapsedGameTime;
 
         Graphics.CameraSpeed = 1f;
         if (_keyboardState.IsKeyDown(Keys.Space))
@@ -481,7 +481,7 @@ public class Game : BlWindow3D
         //    $"ModelLod: { (object)Model.LodTarget}\n" +
         //    $"ModelApparentSize: { (object)Model.ApparentSize }";
 
-        //var MyMenuText = $"FrameProcTime: {_frameProctime.TotalMilliseconds:0.0000}, ({1f / _frameProctime.TotalSeconds:0.00})\n" +
+        //var MyMenuText = $"FrameProcTime: {_frameProcTime.TotalMilliseconds:0.0000}, ({1f / _frameProcTime.TotalSeconds:0.00})\n" +
         //    $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
 
         // var myMenuText = $"Position: {_gameState.Players[0].Position.LengthSquared():0.00000}\n" +
