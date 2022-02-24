@@ -43,11 +43,12 @@ public class Game : BlWindow3D
     // private BlSprite _model = null;
 
     private Matrix _lastProjectionMatrix;
-    // private SpriteFont _font;
+    private SpriteFont _font;
 
     private MouseState _mouseState;
     private KeyboardState _previousKeyboardState;
     private GameState _realTimeGameState;
+    private GameState _delayedGameState;
 
     private ResycSmoothing _resycSmoothing;
     private BlSprite _skybox;
@@ -68,6 +69,7 @@ public class Game : BlWindow3D
 // ";
 
     private BlSprite _topSprite;
+    private int _delay = 0;
 
     public Game()
     {
@@ -99,7 +101,7 @@ public class Game : BlWindow3D
         // certain Blotch3D/Monogame methods, like BlGraphicsDeviceManager.LoadFromImageFile.
         Content = new ContentManager(Services, "Content");
 
-        // _font = Content.Load<SpriteFont>("Arial14");
+        _font = Content.Load<SpriteFont>("Arial14");
 
 
         //var cube = new BlSprite(Graphics, "cube");
@@ -346,6 +348,8 @@ public class Game : BlWindow3D
         _keyboardState = Keyboard.GetState();
         _mouseState = Mouse.GetState();
 
+        Graphics.DoDefaultGui();
+
         if (KeyPressed(Keys.R))
         {
             _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT,
@@ -353,8 +357,14 @@ public class Game : BlWindow3D
             _resycSmoothing = new ResycSmoothing(_gameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
         }
 
-        if (KeyPressed(Keys.C)) _controlAll = !_controlAll;
+        if (KeyPressed(Keys.C)) 
+            _controlAll = !_controlAll;
 
+        if (KeyPressed(Keys.Up))
+            _delay = Math.Min(_delay + 1, _gameStateManager.MaxRollbackTicks);
+
+        if (KeyPressed(Keys.Down))
+            _delay = Math.Max(_delay - 1, 0);
 
         var deltaTime = (float)timeInfo.ElapsedGameTime.TotalMilliseconds;
 
@@ -362,7 +372,13 @@ public class Game : BlWindow3D
         var playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
         (_gameState, _realTimeGameState) =
             _gameStateManager.UpdateCurrentGameState(deltaTime, playerInput, _controlAll);
-        _smoothedPlayers = _resycSmoothing.SmoothPlayers(_gameState.Players, deltaTime);
+
+        if (_delay > 0)
+            _delayedGameState = _gameStateManager.GetDelayedGameState(_delay);
+        else
+            _delayedGameState = _gameState;
+
+        _smoothedPlayers = _resycSmoothing.SmoothPlayers(_delayedGameState.Players, deltaTime);
 
         // _frameProctime = timeInfo.ElapsedGameTime;
 
@@ -468,23 +484,28 @@ public class Game : BlWindow3D
         //var MyMenuText = $"FrameProcTime: {_frameProctime.TotalMilliseconds:0.0000}, ({1f / _frameProctime.TotalSeconds:0.00})\n" +
         //    $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
 
-        //var MyMenuText = $"Position: {GameState.Players[0].Position.LengthSquared():0.00000}\n" +
-        // $"Velocity: {GameState.Players[0].Velocity.LengthSquared()}\n" +
-        // $"{GameState.Players[0].Velocity == Vector3.Zero}";
+        // var myMenuText = $"Position: {_gameState.Players[0].Position.LengthSquared():0.00000}\n" +
+        //  $"Velocity: {_gameState.Players[0].Velocity.LengthSquared()}\n" +
+        //  $"{_gameState.Players[0].Velocity == Vector3.Zero}";
 
-        //try
-        //{
-        //    handle undrawable characters for the specified font(like the infinity symbol)
-        //    try
-        //        {
-        //            Graphics.DrawText(MyMenuText, Font, new Vector2(50, 50));
-        //        }
-        //        catch { }
-        //}
-        //catch (Exception e)
-        //{
-        //    Console.WriteLine(e);
-        //}
+        var myMenuText = $"Delay: {_delay*_gameStateManager.TickDuration}ms";
+
+        try
+        {
+            // handle undrawable characters for the specified font(like the infinity symbol)
+            try
+            {
+                Graphics.DrawText(myMenuText, _font, new Vector2(50, 50));
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
 
         /*
         Console.WriteLine("{0}  {1}  {2}  {3}  {4}",

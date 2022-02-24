@@ -54,6 +54,11 @@ public class GameStateManager
 
     public int MaxRollbackTicks { get; }
 
+    public GameState GetDelayedGameState(int delayTicks)
+    {
+        return GamesStates[delayTicks].GameState;
+    }
+
     public void UpdateRollbackGameState(int frameNum, int playerNum, PlayerInput playerInput)
     {
         var ticksToRollback = TickNum - frameNum;
