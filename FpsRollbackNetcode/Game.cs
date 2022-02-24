@@ -26,12 +26,11 @@ public class Game : BlWindow3D
 
     private const float SMOOTHING_LINEAR = MAX_VELOCITY * 2f;
 
-    public const float WIGGLE_FREQUENCY = 2000f;
+    private const float WIGGLE_FREQUENCY = 2000f;
 
     private readonly float _skyboxDiameter = 1000000f;
     // private TimeSpan _frameProcTime;
-
-    public readonly Random Rand = new(0);
+    
     private bool _controlAll;
 
     private GameState _gameState;
@@ -40,7 +39,6 @@ public class Game : BlWindow3D
     private BlSprite _hudBackground;
 
     private KeyboardState _keyboardState;
-    // private BlSprite _model = null;
 
     private Matrix _lastProjectionMatrix;
     private SpriteFont _font;
@@ -70,6 +68,12 @@ public class Game : BlWindow3D
 
     private BlSprite _topSprite;
     private int _delay;
+
+    private bool _displayRealTimePlayer;
+    private bool _displayClientPlayers;
+    private bool _displaySmoothedPlayer = true;
+    private Model? _bunnyModel;
+
 
     public Game()
     {
@@ -304,37 +308,15 @@ public class Game : BlWindow3D
         //	Players = Enumerable.Range(0, 10).Select(i => new PlayerState() { Position = new Vector3((float)Rand.NextDouble()-0.5f, (float)Rand.NextDouble()-0.5f, 0f) }).ToArray()
         //};
 
-        var bunnyModel = Content.Load<Model>("bunny");
+        _bunnyModel = Content.Load<Model>("bunny");
 
-        var playerBunny = new BlSprite(Graphics, "player0");
-        playerBunny.LODs.Add(bunnyModel);
+        var playerBunny = new BlSprite(Graphics, "clientPlayer");
+        playerBunny.LODs.Add(_bunnyModel);
         playerBunny.SetAllMaterialBlack();
         playerBunny.Color = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-
         _topSprite.Add(playerBunny);
 
-        for (var i = 1; i < _gameStateManager.PlayerCount; i++)
-        {
-            var colour = new Vector3((float)Rand.NextDouble(), (float)Rand.NextDouble(), (float)Rand.NextDouble());
-
-            //var bunny = new BlSprite(Graphics, "player" + i);
-            //bunny.LODs.Add(bunnyModel);
-            //bunny.SetAllMaterialBlack();
-            //bunny.Color = colour;
-            //TopSprite.Add(bunny);
-
-            var realTimeBunny = new BlSprite(Graphics, "realTimePlayer" + i);
-            realTimeBunny.LODs.Add(bunnyModel);
-            realTimeBunny.SetAllMaterialBlack();
-            realTimeBunny.Color = colour;
-            _topSprite.Add(realTimeBunny);
-
-            var smoothedBunny = new BlSprite(Graphics, "smoothedPlayer" + i);
-            smoothedBunny.LODs.Add(bunnyModel);
-            smoothedBunny.SetAllMaterialBlack();
-            smoothedBunny.Color = colour;
-            _topSprite.Add(smoothedBunny);
-        }
+        MakeSprites("smoothedPlayer");
 
         for (var i = 1; i < _gameStateManager.PlayerCount; i++)
         {
@@ -343,12 +325,61 @@ public class Game : BlWindow3D
         }
     }
 
+    private void MakeSprites(string name)
+    {
+        var rand = new Random(0);
+        for (var i = 1; i < _gameStateManager.PlayerCount; i++)
+        {
+            var colour = new Vector3((float)rand.NextDouble(), (float)rand.NextDouble(), (float)rand.NextDouble());
+
+            var sprite = new BlSprite(Graphics, name + i);
+            sprite.LODs.Add(_bunnyModel);
+            sprite.SetAllMaterialBlack();
+            sprite.Color = colour;
+
+            _topSprite.Add(sprite);
+        }
+    }
+
+    private void RemoveSprites(string name)
+    {
+        for (var i = 1; i < _gameStateManager.PlayerCount; i++)
+        {
+            var sprite = _topSprite[name + i];
+            _topSprite.Remove(name + i);
+            sprite.Dispose();
+        }
+    }
+
+
     protected override void FrameProc(GameTime timeInfo)
     {
         _keyboardState = Keyboard.GetState();
         _mouseState = Mouse.GetState();
 
         Graphics.DoDefaultGui();
+
+        void ToggleDisplay(ref bool displayFlag, Keys key, string name)
+        {
+            if (!KeyPressed(key))
+                return;
+
+            displayFlag = !displayFlag;
+
+            if (!displayFlag)
+            {
+                RemoveSprites(name);
+            }
+            else
+            {
+                MakeSprites(name);
+            }
+        }
+
+        ToggleDisplay(ref _displayRealTimePlayer, Keys.I, "realTimePlayer");
+        ToggleDisplay(ref _displayClientPlayers, Keys.O, "clientPlayer");
+        ToggleDisplay(ref _displaySmoothedPlayer, Keys.P, "smoothedPlayer");
+
 
         if (KeyPressed(Keys.R))
         {
@@ -381,6 +412,7 @@ public class Game : BlWindow3D
         _smoothedPlayers = _resycSmoothing.SmoothPlayers(_delayedGameState.Players, deltaTime);
 
         // _frameProcTime = timeInfo.ElapsedGameTime;
+        
 
         Graphics.CameraSpeed = 1f;
         if (_keyboardState.IsKeyDown(Keys.Space))
@@ -405,11 +437,6 @@ public class Game : BlWindow3D
         return _keyboardState.IsKeyDown(k) && !_previousKeyboardState.IsKeyDown(k);
     }
 
-    public bool KeyReleased(Keys k)
-    {
-        return _keyboardState.IsKeyUp(k) && _previousKeyboardState.IsKeyDown(k);
-    }
-
     /// <summary>
     ///     'FrameDraw' is automatically called once per frame if there is enough CPU. Otherwise its called more slowly.
     ///     This is where you would typically draw the scene.
@@ -417,6 +444,7 @@ public class Game : BlWindow3D
     /// <param name="timeInfo">Provides a snapshot of timing values.</param>
     protected override void FrameDraw(GameTime timeInfo)
     {
+
         //Thread.Sleep(100);
         //Console.WriteLine(timeInfo.ElapsedGameTime.TotalMilliseconds);
         // handle the standard mouse and key commands for controlling the 3D view
@@ -439,19 +467,41 @@ public class Game : BlWindow3D
         var hudDist = (float)-(Graphics.CurrentNearClip + Graphics.CurrentFarClip) / 2;
         _hudBackground.Matrix = Matrix.CreateScale(.4f, .4f, .4f) * Matrix.CreateTranslation(0, 0, hudDist);
 
-        _topSprite["player0"].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
-                                       Matrix.CreateTranslation(_gameState.Players[0].Position);
+        _topSprite["clientPlayer"].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
+                                      Matrix.CreateTranslation(_gameState.Players[0].Position);
 
-        for (var i = 1; i < _gameState.Players.Length; i++)
+        void UpdateDisplayPlayers(bool shouldDisplay, string name, IReadOnlyList<PlayerState> playerStates)
         {
-            //TopSprite["player" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
+            if (!shouldDisplay)
+                return;
 
-            _topSprite["realTimePlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
-                                                      Matrix.CreateTranslation(_realTimeGameState.Players[i].Position);
-
-            _topSprite["smoothedPlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
-                                                      Matrix.CreateTranslation(_smoothedPlayers[i].Position);
+            for (var i = 1; i < _gameStateManager.PlayerCount; i++)
+            {
+                _topSprite[name + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
+                                              Matrix.CreateTranslation(playerStates[i].Position);
+            }
         }
+
+        UpdateDisplayPlayers(_displayRealTimePlayer, "realTimePlayer", _realTimeGameState.Players);
+        UpdateDisplayPlayers(_displayClientPlayers, "clientPlayer", _gameState.Players);
+        UpdateDisplayPlayers(_displaySmoothedPlayer, "smoothedPlayer", _smoothedPlayers);
+
+        // UpdateDrawPlayerSprites(_playerSprites, _gameState.Players);
+        //
+        // UpdateDrawPlayerSprites(_realTimePlayerSprites, _realTimeGameState.Players);
+        //
+        // UpdateDrawPlayerSprites(_smoothedPlayerSprites, _smoothedPlayers);
+
+        //for (var i = 1; i < _gameState.Players.Length; i++)
+        //{
+        //    //TopSprite["clientPlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
+
+        //    _topSprite["realTimePlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
+        //                                              Matrix.CreateTranslation(_realTimeGameState.Players[i].Position);
+
+        //    _topSprite["smoothedPlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
+        //                                              Matrix.CreateTranslation(_smoothedPlayers[i].Position);
+        //}
 
         _topSprite.Draw();
 
@@ -488,7 +538,10 @@ public class Game : BlWindow3D
         //  $"Velocity: {_gameState.Players[0].Velocity.LengthSquared()}\n" +
         //  $"{_gameState.Players[0].Velocity == Vector3.Zero}";
 
-        var myMenuText = $"Delay: {_delay*_gameStateManager.TickDuration}ms";
+        var myMenuText = $"Delay (Up and Down Arrows): {_delay*_gameStateManager.TickDuration}ms\n" +
+                         $"Display realTime players (I) = {_displayRealTimePlayer}\n" +
+                         $"Display client players (O) = {_displayClientPlayers}\n" +
+                         $"Display smoothed players (P) = {_displaySmoothedPlayer}";
 
         try
         {
@@ -517,5 +570,10 @@ public class Game : BlWindow3D
         );
         */
         //Console.WriteLine(model.LodCurrentIndex);
+    }
+
+    public bool KeyReleased(Keys k)
+    {
+        return _keyboardState.IsKeyUp(k) && _previousKeyboardState.IsKeyDown(k);
     }
 }
