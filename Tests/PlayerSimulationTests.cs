@@ -1,6 +1,5 @@
 using Xunit;
 using GameLogic;
-using System.Linq;
 using Xunit.Abstractions;
 using System;
 
@@ -16,16 +15,16 @@ public class PlayerSimulationTests
     }
 
     [Fact]
-    public void Test_Next_MaintainsConsistencyIndependantOfTickRate()
+    public void Test_Next_MaintainsConsistencyInterdependentOfTickRate()
     {
         const int testRuns = 11;
         var results = new float[testRuns];
 
-        for (int i = 0; i < testRuns; i++)
+        for (var i = 0; i < testRuns; i++)
         {
             var ticksPerSecond = MathF.Pow(2, i+1);
 
-            float tickDuration = 1024f / ticksPerSecond;
+            var tickDuration = 1024f / ticksPerSecond;
 
             float timeElapsed = 0;
 
@@ -34,10 +33,10 @@ public class PlayerSimulationTests
             var playerState = new PlayerState();
             while (timeElapsed < totalSimulationTime)
             {
-                bool moveForward = ((int)timeElapsed % 1000) <= 500;
+                var moveForward = ((int)timeElapsed % 1000) <= 500;
                 var playerInput = new PlayerInput
                 {
-                    playerActions = moveForward ? PlayerAction.MoveForward : PlayerAction.None
+                    PlayerActions = moveForward ? PlayerAction.MoveForward : PlayerAction.None
                 };
                 playerState = PlayerSimulation.Next(tickDuration, playerState, playerInput);
 
@@ -54,9 +53,9 @@ public class PlayerSimulationTests
         const float tolerance = 0.1f;
 
         _output.WriteLine($"average = {average}");
-        for (int i = 0; i < testRuns; i++)
+        for (var i = 0; i < testRuns; i++)
         {
-            float result = results[i];
+            var result = results[i];
             _output.WriteLine($"{i} = {result}");
             Assert.InRange(result, average - tolerance, average + tolerance);
         }        
