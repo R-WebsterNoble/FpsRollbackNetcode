@@ -22,9 +22,9 @@ public class Game : BlWindow3D
     private const float ACCELERATION = 0.01f / 1000f;
     private const float MAX_VELOCITY = 0.002f;
 
-    private const float SMOOTHING_LERP = 0.01f;
+    private const float SMOOTHING_LERP = 0.005f;
 
-    private const float SMOOTHING_LINEAR = MAX_VELOCITY * 2f;
+    private const float SMOOTHING_LINEAR = MAX_VELOCITY * 1.55f;
 
     private const float WIGGLE_FREQUENCY = 2000f;
 
@@ -72,7 +72,7 @@ public class Game : BlWindow3D
     private bool _displayRealTimePlayer;
     private bool _displayClientPlayers;
     private bool _displaySmoothedPlayer = true;
-    private Model? _bunnyModel;
+    private Model _bunnyModel;
 
 
     public Game()
@@ -313,7 +313,7 @@ public class Game : BlWindow3D
         var playerBunny = new BlSprite(Graphics, "clientPlayer");
         playerBunny.LODs.Add(_bunnyModel);
         playerBunny.SetAllMaterialBlack();
-        playerBunny.Color = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        playerBunny.Color = new Vector3(1f, 1f, 1f);
         _topSprite.Add(playerBunny);
 
         MakeSprites("smoothedPlayer");
@@ -464,11 +464,18 @@ public class Game : BlWindow3D
 
         _skybox.Draw();
 
-        var hudDist = (float)-(Graphics.CurrentNearClip + Graphics.CurrentFarClip) / 2;
-        _hudBackground.Matrix = Matrix.CreateScale(.4f, .4f, .4f) * Matrix.CreateTranslation(0, 0, hudDist);
+        //var hudDist = (float)-(Graphics.CurrentNearClip + Graphics.CurrentFarClip) / 2;
+        //_hudBackground.Matrix = Matrix.CreateScale(.4f, .4f, .4f) * Matrix.CreateTranslation(0, 0, hudDist);
 
-        _topSprite["clientPlayer"].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
-                                      Matrix.CreateTranslation(_gameState.Players[0].Position);
+
+        void UpdateDisplayPlayer(string name, int i, IReadOnlyList<PlayerState> playerStates)
+        {
+            _topSprite[name].Matrix =
+                Matrix.CreateScale(0.1f) *
+                Matrix.CreateRotationX(MathF.PI * 0.5f) *
+                Matrix.CreateRotationZ(MathF.PI  * 1.5f) *
+                Matrix.CreateTranslation(playerStates[i].Position);
+        }
 
         void UpdateDisplayPlayers(bool shouldDisplay, string name, IReadOnlyList<PlayerState> playerStates)
         {
@@ -477,10 +484,11 @@ public class Game : BlWindow3D
 
             for (var i = 1; i < _gameStateManager.PlayerCount; i++)
             {
-                _topSprite[name + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
-                                              Matrix.CreateTranslation(playerStates[i].Position);
+                UpdateDisplayPlayer(name + i, i, playerStates);
             }
         }
+
+        UpdateDisplayPlayer("clientPlayer", 0, _gameState.Players);
 
         UpdateDisplayPlayers(_displayRealTimePlayer, "realTimePlayer", _realTimeGameState.Players);
         UpdateDisplayPlayers(_displayClientPlayers, "clientPlayer", _gameState.Players);
