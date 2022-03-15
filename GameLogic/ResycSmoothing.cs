@@ -33,7 +33,7 @@ public class ResycSmoothing
 
             var linearDistance = _linear * deltaTime;
             var clampedDistance =
-                MathF.Min(linearDistance, totalLinearDistanceToCover); // Clamp to prevent overshooting and ocilating
+                MathF.Min(linearDistance, totalLinearDistanceToCover); // Clamp to prevent overshooting and oscillating
             var smootheeMovement = Vector3.Normalize(linearDirection) * clampedDistance;
             SmoothedPlayers[i].Position += smootheeMovement;
         }

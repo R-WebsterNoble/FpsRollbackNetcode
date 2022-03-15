@@ -151,7 +151,7 @@ public class GameStateManager
 
             _timeRemainingAfterProcessingFixedTicks -= TickDuration;
         }
-
+        
         return (Simulation.Next(_timeRemainingAfterProcessingFixedTicks, Latest, playerInputs),
             Simulation.Next(_timeRemainingAfterProcessingFixedTicks, _lastRealTimeTick, inputs));
     }

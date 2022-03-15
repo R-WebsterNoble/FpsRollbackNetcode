@@ -7,24 +7,19 @@ using Microsoft.Xna.Framework.Input;
 
 namespace FpsRollbackNetcode;
 
-/// <summary>
-///     A 3D Window
-/// </summary>
 public class Game : BlWindow3D
 {
     private const float TICKS_PER_SECOND = 128f;
 
-    //private const float MAX_ROLLBACK_FRAMES = 10f;// 10 frames
-    //private const float MAX_ROLLBACK_TIME = (1000f / TICKS_PER_SECOND) * MAX_ROLLBACK_FRAMES;// 10 frames
     private const float MAX_ROLLBACK_TIME = 500f;
     private const int PLAYER_COUNT = 10;
 
     private const float ACCELERATION = 0.01f / 1000f;
     private const float MAX_VELOCITY = 0.002f;
 
-    private const float SMOOTHING_LERP = 0.005f;
+    private const float SMOOTHING_LERP = 0.0005f;
 
-    private const float SMOOTHING_LINEAR = MAX_VELOCITY * 1.55f;
+    private const float SMOOTHING_LINEAR = MAX_VELOCITY * 1.45f;
 
     private const float WIGGLE_FREQUENCY = 2000f;
 
@@ -316,7 +311,7 @@ public class Game : BlWindow3D
         playerBunny.Color = new Vector3(1f, 1f, 1f);
         _topSprite.Add(playerBunny);
 
-        MakeSprites("smoothedPlayer");
+        MakeSprites("smoothedPlayer", 1f);
 
         for (var i = 1; i < _gameStateManager.PlayerCount; i++)
         {
@@ -325,12 +320,12 @@ public class Game : BlWindow3D
         }
     }
 
-    private void MakeSprites(string name)
+    private void MakeSprites(string name, float brightness)
     {
-        var rand = new Random(0);
+        var rand = new Random(1);
         for (var i = 1; i < _gameStateManager.PlayerCount; i++)
         {
-            var colour = new Vector3((float)rand.NextDouble(), (float)rand.NextDouble(), (float)rand.NextDouble());
+            var colour = new Vector3((float)rand.NextDouble()* brightness, (float)rand.NextDouble() * brightness, (float)rand.NextDouble() *brightness);
 
             var sprite = new BlSprite(Graphics, name + i);
             sprite.LODs.Add(_bunnyModel);
@@ -359,7 +354,7 @@ public class Game : BlWindow3D
 
         Graphics.DoDefaultGui();
 
-        void ToggleDisplay(ref bool displayFlag, Keys key, string name)
+        void ToggleDisplay(ref bool displayFlag, Keys key, string name, float saturation)
         {
             if (!KeyPressed(key))
                 return;
@@ -372,13 +367,13 @@ public class Game : BlWindow3D
             }
             else
             {
-                MakeSprites(name);
+                MakeSprites(name, saturation);
             }
         }
 
-        ToggleDisplay(ref _displayRealTimePlayer, Keys.I, "realTimePlayer");
-        ToggleDisplay(ref _displayClientPlayers, Keys.O, "clientPlayer");
-        ToggleDisplay(ref _displaySmoothedPlayer, Keys.P, "smoothedPlayer");
+        ToggleDisplay(ref _displayRealTimePlayer, Keys.I, "realTimePlayer", 0.25f);
+        ToggleDisplay(ref _displayClientPlayers, Keys.O, "clientPlayer", 0.5f);
+        ToggleDisplay(ref _displaySmoothedPlayer, Keys.P, "smoothedPlayer", 1f);
 
 
         if (KeyPressed(Keys.R))
