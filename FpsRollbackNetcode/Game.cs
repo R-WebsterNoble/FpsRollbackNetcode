@@ -1,582 +1,334 @@
-﻿using Blotch;
-using GameLogic;
+﻿using GameLogic;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 namespace FpsRollbackNetcode;
 
-public class Game : BlWindow3D
+public class Game : Microsoft.Xna.Framework.Game
 {
-    private const float TICKS_PER_SECOND = 128f;
+    private readonly GraphicsDeviceManager _graphics;
+    private SpriteBatch _spriteBatch;
+    
+    //Camera
+    private Vector3 _bunnyPosition;
+    private Vector3 _camPosition;
+    private Matrix _projectionMatrix;
+    private Matrix _viewMatrix;
+    private Matrix _worldMatrix;
 
+    //Geometric info
+    private Model _bunnyModel;
+
+    private Vector2 _cameraRotation = new Vector2();
+    private MouseState _previousMouseState = new MouseState();
+
+    private const float TICKS_PER_SECOND = 128f;
+        
     private const float MAX_ROLLBACK_TIME = 500f;
     private const int PLAYER_COUNT = 10;
-
+        
     private const float ACCELERATION = 0.01f / 1000f;
     private const float MAX_VELOCITY = 0.002f;
-
+        
     private const float SMOOTHING_LERP = 0.0005f;
-
+        
     private const float SMOOTHING_LINEAR = MAX_VELOCITY * 1.45f;
-
+        
     private const float WIGGLE_FREQUENCY = 2000f;
-
+        
     private readonly float _skyboxDiameter = 1000000f;
     // private TimeSpan _frameProcTime;
-    
-    private bool _controlAll;
-
+        
+    private bool _controlAll = true;
+        
     private GameState _gameState;
-
+        
     private GameStateManager _gameStateManager;
-    private BlSprite _hudBackground;
-
-    private KeyboardState _keyboardState;
-
-    private Matrix _lastProjectionMatrix;
-    private SpriteFont _font;
-
-    private MouseState _mouseState;
+    // private BlSprite _hudBackground;
+        
+        
+    // private Matrix _lastProjectionMatrix;
+    // private SpriteFont _font;
+        
     private KeyboardState _previousKeyboardState;
     private GameState _realTimeGameState;
     private GameState _delayedGameState;
-
+        
     private ResycSmoothing _resycSmoothing;
-    private BlSprite _skybox;
-    private Model _skyboxModel;
     private PlayerState[] _smoothedPlayers;
-    private BlSprite _topHudSprite;
 
-
-//         private string _help = @"
-// Camera controls:
-// Dolly  -  Wheel
-// Zoom   -  Left-CTRL-wheel
-// Truck  -  Left-drag 
-// Rotate -  Right-drag
-// Pan    -  Left-ALT-left-drag
-// Reset  -  Esc
-// Fine control  -  Left-Shift
-// ";
-
-    private BlSprite _topSprite;
     private int _delay;
-
-    private bool _displayRealTimePlayer;
+        
+    private bool _displayRealTimePlayer = true;
     private bool _displayClientPlayers;
-    private bool _displaySmoothedPlayer = true;
-    private Model _bunnyModel;
-
+    private bool _displaySmoothedPlayer;
 
     public Game()
     {
-        PlayerSimulation.MaxVelocity = MAX_VELOCITY;
-        PlayerSimulation.Acceleration = ACCELERATION;
+        _graphics = new GraphicsDeviceManager(this);
+        Content.RootDirectory = "Content";
     }
 
-    /// <summary>
-    ///     'Setup' is automatically called one time just after the object is created, by the 3D thread.
-    ///     You can load fonts, load models, and do other time consuming one-time things here that must be done
-    ///     by the object's thread..
-    ///     You can also load content later if necessary (like in the Update or Draw methods), but try
-    ///     to load them as few times as necessary because loading things takes time.
-    /// </summary>
-    protected override void Setup()
+    protected override void Initialize()
     {
-        _topSprite = new BlSprite(Graphics, "topSprite");
-        _topHudSprite = new BlSprite(Graphics, "topHudSprite");
-        _hudBackground = new BlSprite(Graphics, "HudBackground");
-        Graphics.ClearColor = new Color();
-        //Graphics.AutoRotate = .002;
+        base.Initialize();
 
-        // Any type of content (3D models, fonts, images, etc.) can be converted to an XNB file by downloading and
-        // using the mgcb-editor (see Blotch3D.chm for details). XNB files are then normally added to the project
-        // and loaded as shown here. 'Content', here, is the folder that contains the XNB files or subfolders with
-        // XNB files. We need to create one ContentManager object for each top-level content folder we'll be loading
-        // XNB files from. You can create multiple content managers if content is spread over diverse folders. Some
-        // content can also be loaded in its native format using platform specific code (may not be portable) or
-        // certain Blotch3D/Monogame methods, like BlGraphicsDeviceManager.LoadFromImageFile.
-        Content = new ContentManager(Services, "Content");
+        //Setup Camera
+        _bunnyPosition = Vector3.Zero;
+        _camPosition = Vector3.Backward * 7f + Vector3.Up * 2f;
+        _projectionMatrix = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(45f),
+            _graphics.GraphicsDevice.Viewport.AspectRatio, 1f, 1000f);
+        _viewMatrix = Matrix.CreateLookAt(_camPosition, _bunnyPosition, Vector3.Up);
+        _worldMatrix = Matrix.CreateWorld(_bunnyPosition, Vector3.Forward, Vector3.Up);
 
-        _font = Content.Load<SpriteFont>("Arial14");
+        // _cameraRotation = new Vector2(0f, MathHelper.ToRadians(-45f));
+        _cameraRotation = new Vector2(0f, -0.25f);
 
+        _bunnyModel = Content.Load<Model>("bunny");
 
-        //var cube = new BlSprite(Graphics, "cube");
-        //cube.LODs.Add(Content.Load<Model>("cube"));
-        //TopSprite.Add("cube", cube);
+        IsFixedTimeStep = false;
 
-        //var bunny = new BlSprite(Graphics, "bunny");
-        //bunny.LODs.Add(Content.Load<Model>("bunny"));
-        //TopSprite.Add("bunny", bunny);
-        //bunny.SetAllMaterialBlack();
-        //bunny.Color= new Vector3(1, 0, 0);
-
-
-        //var bunny = Content.Load<Model>("bunny");
-        //TopSprite.Add("bunny", bunny);
-
-        //var floor = new BlSprite(Graphics, "floor");
-        // var plane = Content.Load<Model>("Plane");
-        // var sphere = Content.Load<Model>("uv_sphere_192x96");
-        // var myTexture = Graphics.LoadFromImageFile("Content/image_with_alpha.png");
-
-        //
-        // Create floor
-        //
-        //floor.LODs.Add(plane);
-        //floor.Mipmap = new BlMipmap(Graphics, MyTexture);
-        //floor.SetAllMaterialBlack();
-        //floor.EmissiveColor = new Vector3(1, 1, 1);
-        //TopSprite.Add("floor", floor);
-
-        //
-        // Create parent
-        //
-        var modelParent = new BlSprite(Graphics, "parent");
-        modelParent.Matrix *= Matrix.CreateTranslation(1, 1, 1);
-        _topSprite.Add("modelParent", modelParent);
-
-        ////
-        //// Create model
-        ////
-        //Model = new BlSprite(Graphics, "model");
-        //Model.Mipmap = new BlMipmap(Graphics, MyTexture);
-        //Model.Matrix = Microsoft.Xna.Framework.Matrix.CreateScale(.12f);
-        //Model.SetAllMaterialBlack();
-        //Model.EmissiveColor = new Vector3(1, 1, 1);
-        //modelParent.Add("model", Model);
-
-        //var verts = new VertexPositionNormalTexture[6];
-        //var norm = new Vector3(0, 0, 1);
-        //verts[0].Position = new Vector3(-1, -1, 0);
-        //verts[0].TextureCoordinate = new Vector2(0, 0);
-        //verts[0].Normal = norm;
-
-        //verts[1].Position = new Vector3(-1, 1, 0);
-        //verts[1].TextureCoordinate = new Vector2(0, 1);
-        //verts[1].Normal = norm;
-
-        //verts[2].Position = new Vector3(1, -1, 0);
-        //verts[2].TextureCoordinate = new Vector2(1, 0);
-        //verts[2].Normal = norm;
-
-        //verts[3].Position = verts[1].Position;
-        //verts[3].TextureCoordinate = new Vector2(0, 1);
-        //verts[3].Normal = norm;
-
-        //verts[4].Position = new Vector3(1, 1, 0);
-        //verts[4].TextureCoordinate = new Vector2(1, 1);
-        //verts[4].Normal = norm;
-
-        //verts[5].Position = verts[2].Position;
-        //verts[5].TextureCoordinate = new Vector2(1, 0);
-        //verts[5].Normal = norm;
-
-        //var vertBuf = BlGeometry.TrianglesToVertexBuffer(Graphics.GraphicsDevice, verts);
-
-        //Model.LODs.Add(sphere);
-        //Model.LODs.Add(vertBuf);
-        //Model.LODs.Add(sphere);
-        //Model.LODs.Add(vertBuf);
-        //Model.LODs.Add(null);
-        //Model.BoundSphere = new BoundingSphere(Vector3.Zero, 1);
-
-
-        ////
-        //// Create text
-        ////
-        //var text = new BlSprite(Graphics, "text");
-        //text.SphericalBillboard = true;
-        //text.ConstSize = true;
-        //modelParent.Add("text", text);
-
-        //// Note that in-world textures with alpha (like this one) really need to use
-        //// an alpha test to work correctly (see the SpriteAlphaTexture demo)
-        //// This one works because it is drawn last and there is no other alpha texture in front of it.
-        //var title = new BlSprite(Graphics, "title");
-        //title.LODs.Add(Content.Load<Model>("Plane"));
-        //title.Matrix = Matrix.CreateScale(.15f, .05f, .15f);
-        //title.Mipmap = new BlMipmap(Graphics, Graphics.TextToTexture("These words are\nin world space.\nThis object has LODs", Font, Microsoft.Xna.Framework.Color.Red, Microsoft.Xna.Framework.Color.Transparent));
-        //title.MipmapScale = -1000;
-        //title.SetAllMaterialBlack();
-        //title.EmissiveColor = new Vector3(1, 1, 1);
-        //title.PreDraw = (s) =>
-        //{
-        //	// Disable depth testing
-        //	Graphics.GraphicsDevice.DepthStencilState = Graphics.DepthStencilStateDisabled;
-        //	return BlSprite.PreDrawCmd.Continue;
-        //};
-        //title.DrawCleanup = (s) =>
-        //{
-        //	// Disable depth testing
-        //	Graphics.GraphicsDevice.DepthStencilState = Graphics.DepthStencilStateEnabled;
-        //};
-        //text.Add("title", title);
-
-        ////
-        //// Create hud
-        ////
-        //HudBackground.IncludeInAutoClipping = false;
-        //HudBackground.ConstSize = true;
-        //TopHudSprite.Add("hudBackground", HudBackground);
-
-        //var myHud = new BlSprite(Graphics, "myHud");
-        //HudBackground.Add("myHud", myHud);
-
-        //myHud.Matrix = Matrix.CreateScale(.2f, .1f, .2f);
-        //myHud.Matrix *= Matrix.CreateTranslation(3, 1, 0);
-
-        //myHud.LODs.Add(Content.Load<Model>("Plane"));
-        //myHud.Mipmap = new BlMipmap(Graphics, Graphics.TextToTexture("HUD text", Font, Color.White, Color.Transparent), 1);
-        //myHud.SetAllMaterialBlack();
-        //myHud.EmissiveColor = new Vector3(1, 1, 1);
-
-        // Create skybox, with a FrameProc that keeps it centered on the camera
-        _skybox = new BlSprite(Graphics, "Skybox", s => { s.Matrix.Translation = Graphics.TargetEye; });
-        _skybox.Mipmap = new BlMipmap(Graphics, Graphics.LoadFromImageFile("Content/Skybox.jpg"), 1);
-        _skyboxModel = Content.Load<Model>("uv_sphere_192x96");
-        _skybox.LODs.Add(_skyboxModel);
-
-        // Exclude from auto-clipping
-        _skybox.IncludeInAutoClipping = false;
-
-        // The sphere model is rotated a bit to avoid distortion at the poles. So we have to rotate it back
-        _skybox.Matrix = Matrix.CreateFromYawPitchRoll(.462f, 0, .4504f);
-
-        _skybox.Matrix *= Matrix.CreateScale(_skyboxDiameter);
-        _skybox.PreDraw = _ =>
-        {
-            // Set inside facets to visible, rather than outside
-            Graphics.GraphicsDevice.RasterizerState = RasterizerState.CullClockwise;
-
-            // Disable depth testing
-            Graphics.GraphicsDevice.DepthStencilState = Graphics.DepthStencilStateDisabled;
-
-            // Create a separate View matrix when drawing the skybox, which is the same as the current view matrix but with very high farclip
-            _lastProjectionMatrix = Graphics.Projection;
-            Graphics.Projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians((float)Graphics.Zoom),
-                (float)Graphics.CurrentAspect, _skyboxDiameter / 100, _skyboxDiameter * 100);
-
-            return BlSprite.PreDrawCmd.Continue;
-        };
-        _skybox.DrawCleanup = _ =>
-        {
-            // restore default settings
-
-            Graphics.GraphicsDevice.DepthStencilState = Graphics.DepthStencilStateEnabled;
-            Graphics.GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-            Graphics.Projection = _lastProjectionMatrix;
-        };
-        _skybox.SpecularColor = Vector3.Zero;
-        _skybox.Color = Vector3.Zero;
-        _skybox.EmissiveColor = new Vector3(1, 1, 1);
-
-        //var guiCtrl = new BlGuiControl(this)
-        //{
-        //	Texture = Graphics.TextToTexture("Click me for a console message", Font, Color.Green, Color.Transparent),
-        //	Position = new Vector2(600, 100),
-        //	OnMouseOver = (ctrl) =>
-        //	{
-        //		if (ctrl.PrevMouseState.LeftButton == ButtonState.Released && Mouse.GetState().LeftButton == ButtonState.Pressed)
-        //			Console.WriteLine("GUI button was clicked");
-        //	}
-        //};
-
-
-        //GuiControls.TryAdd("MyControl", guiCtrl);
-
-        Graphics.FramePeriod = 0;
-
-        //Graphics.FramePeriod = 0.25f;
-
-        //IsFixedTimeStep = true;
-        //float maxRollbackTime = (1000f / 100f) * 10f;// 10 frames
-        _gameStateManager =
-            new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT, WIGGLE_FREQUENCY);
-
+        _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT, WIGGLE_FREQUENCY);
+            
         _resycSmoothing = new ResycSmoothing(_gameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
-
+            
         //GameState = new GameState() 
         //{
         //	Players = Enumerable.Range(0, 10).Select(i => new PlayerState() { Position = new Vector3((float)Rand.NextDouble()-0.5f, (float)Rand.NextDouble()-0.5f, 0f) }).ToArray()
         //};
-
+            
         _bunnyModel = Content.Load<Model>("bunny");
-
-        var playerBunny = new BlSprite(Graphics, "clientPlayer");
-        playerBunny.LODs.Add(_bunnyModel);
-        playerBunny.SetAllMaterialBlack();
-        playerBunny.Color = new Vector3(1f, 1f, 1f);
-        _topSprite.Add(playerBunny);
-
-        MakeSprites("smoothedPlayer", 1f);
 
         for (var i = 1; i < _gameStateManager.PlayerCount; i++)
         {
             var playerRollbackTicks = _gameStateManager.GetDelayedPlayerRollbackTicks(i);
             Console.WriteLine($"player : {i} = {playerRollbackTicks * _gameStateManager.TickDuration}");
         }
+
     }
 
-    private void MakeSprites(string name, float brightness)
+    protected override void LoadContent()
     {
-        var rand = new Random(1);
-        for (var i = 1; i < _gameStateManager.PlayerCount; i++)
-        {
-            var colour = new Vector3((float)rand.NextDouble()* brightness, (float)rand.NextDouble() * brightness, (float)rand.NextDouble() *brightness);
-
-            var sprite = new BlSprite(Graphics, name + i);
-            sprite.LODs.Add(_bunnyModel);
-            sprite.SetAllMaterialBlack();
-            sprite.Color = colour;
-
-            _topSprite.Add(sprite);
-        }
+        _spriteBatch = new SpriteBatch(GraphicsDevice);
     }
 
-    private void RemoveSprites(string name)
+    protected override void UnloadContent()
     {
-        for (var i = 1; i < _gameStateManager.PlayerCount; i++)
-        {
-            var sprite = _topSprite[name + i];
-            _topSprite.Remove(name + i);
-            sprite.Dispose();
-        }
+
     }
 
-
-    protected override void FrameProc(GameTime timeInfo)
+    protected override void Update(GameTime gameTime)
     {
-        _keyboardState = Keyboard.GetState();
-        _mouseState = Mouse.GetState();
+        var keyboardState = Keyboard.GetState();
+        var mouseState = Mouse.GetState();
 
-        Graphics.DoDefaultGui();
+        if (GamePad.GetState(PlayerIndex.One).Buttons.Back ==
+            ButtonState.Pressed || keyboardState.IsKeyDown(Keys.Escape))
+            Exit();
+        
+        var mouseDelta = Point.Zero;
 
-        void ToggleDisplay(ref bool displayFlag, Keys key, string name, float saturation)
+        if (keyboardState.IsKeyDown(Keys.Space) || mouseState.RightButton == ButtonState.Pressed)
         {
-            if (!KeyPressed(key))
-                return;
+            var windowCenter = new Point(Window.ClientBounds.Width / 2, Window.ClientBounds.Height / 2);
 
-            displayFlag = !displayFlag;
-
-            if (!displayFlag)
+            if (_previousKeyboardState.IsKeyDown(Keys.Space) || _previousMouseState.RightButton == ButtonState.Pressed)
             {
-                RemoveSprites(name);
+                mouseDelta = windowCenter - mouseState.Position;
             }
-            else
+
+            Mouse.SetPosition(windowCenter.X, windowCenter.Y);
+        }
+
+        const float CAMERA_MOVEMENT_SPEED = 0.005f;
+        var movementDelta = (CAMERA_MOVEMENT_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds);
+
+        var camMovement = Vector3.Zero;
+
+
+        if (keyboardState.IsKeyDown(Keys.Space))
+        {
+            if (keyboardState.IsKeyDown(Keys.W))
             {
-                MakeSprites(name, saturation);
+                camMovement += Vector3.Forward * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.S))
+            {
+                camMovement += Vector3.Backward * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.D))
+            {
+                camMovement += Vector3.Right * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.A))
+            {
+                camMovement += Vector3.Left * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.LeftShift))
+            {
+                camMovement += Vector3.Up * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.LeftControl))
+            {
+                camMovement += Vector3.Down * movementDelta;
+            }
+
+            if (keyboardState.IsKeyDown(Keys.Up))
+            {
+                _bunnyPosition += Vector3.Forward * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.Down))
+            {
+                _bunnyPosition += Vector3.Backward * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.Right))
+            {
+                _bunnyPosition += Vector3.Right * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.Left))
+            {
+                _bunnyPosition += Vector3.Left * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.PageUp))
+            {
+                _bunnyPosition += Vector3.Up * movementDelta;
+            }
+            if (keyboardState.IsKeyDown(Keys.PageDown))
+            {
+                _bunnyPosition += Vector3.Down * movementDelta;
             }
         }
 
-        ToggleDisplay(ref _displayRealTimePlayer, Keys.I, "realTimePlayer", 0.25f);
-        ToggleDisplay(ref _displayClientPlayers, Keys.O, "clientPlayer", 0.5f);
-        ToggleDisplay(ref _displaySmoothedPlayer, Keys.P, "smoothedPlayer", 1f);
+        if (keyboardState.IsKeyDown(Keys.Space))
+        {
+            float WrapRadians(float value)
+            {
+                var times = (float)Math.Floor((value + 360f) / (360f * 2f));
+
+                return value - (times * (360f * 2f));
+            }
+
+            const float MOUSE_SENSITIVITY = 0.003f;
+            var newXRot = WrapRadians(_cameraRotation.X + mouseDelta.X * MOUSE_SENSITIVITY);
+            var newYRot = Math.Clamp(_cameraRotation.Y + mouseDelta.Y * MOUSE_SENSITIVITY, -MathF.PI * 0.5f, MathF.PI * 0.5f);
+            _cameraRotation = new Vector2(newXRot, newYRot);
+
+            var rotation = Quaternion.CreateFromYawPitchRoll(_cameraRotation.X, _cameraRotation.Y, 0f);
+            _camPosition += Vector3.Transform(camMovement, rotation);
+            _viewMatrix = Matrix.Invert(Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(_camPosition));
+        }
 
 
-        if (KeyPressed(Keys.R))
+        if (KeyPressed(keyboardState, Keys.I))
+        {
+            _displayRealTimePlayer = !_displayRealTimePlayer;
+        }
+
+        if (KeyPressed(keyboardState, Keys.O))
+        {
+            _displayClientPlayers = !_displayClientPlayers;
+        }
+
+        if (KeyPressed(keyboardState, Keys.P))
+        {
+            _displaySmoothedPlayer = !_displaySmoothedPlayer;
+        }
+
+
+        if (KeyPressed(keyboardState, Keys.R))
         {
             _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT,
                 WIGGLE_FREQUENCY);
             _resycSmoothing = new ResycSmoothing(_gameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
         }
-
-        if (KeyPressed(Keys.C)) 
+            
+        if (KeyPressed(keyboardState, Keys.C)) 
             _controlAll = !_controlAll;
-
-        if (KeyPressed(Keys.Up))
+            
+        if (KeyPressed(keyboardState, Keys.Up))
             _delay = Math.Min(_delay + 1, _gameStateManager.MaxRollbackTicks);
-
-        if (KeyPressed(Keys.Down))
+            
+        if (KeyPressed(keyboardState, Keys.Down))
             _delay = Math.Max(_delay - 1, 0);
 
-        var deltaTime = (float)timeInfo.ElapsedGameTime.TotalMilliseconds;
+        var deltaTime = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            
 
-
-        var playerInput = PlayerInput.CreatePlayerInput(_keyboardState);
+        var playerInput = keyboardState.IsKeyDown(Keys.Space) ? new PlayerInput() : PlayerInput.CreatePlayerInput(keyboardState, mouseDelta);
+            
         (_gameState, _realTimeGameState) =
             _gameStateManager.UpdateCurrentGameState(deltaTime, playerInput, _controlAll);
-
+            
         if (_delay > 0)
             _delayedGameState = _gameStateManager.GetDelayedGameState(_delay);
         else
             _delayedGameState = _gameState;
-
+            
         _smoothedPlayers = _resycSmoothing.SmoothPlayers(_delayedGameState.Players, deltaTime);
 
-        // _frameProcTime = timeInfo.ElapsedGameTime;
-        
 
-        Graphics.CameraSpeed = 1f;
-        if (_keyboardState.IsKeyDown(Keys.Space))
-        {
-            var windowCenter = new Point(Window.ClientBounds.Width / 2, Window.ClientBounds.Height / 2);
-            var mouseDelta = windowCenter - _mouseState.Position;
+        _previousMouseState = mouseState;
+        _previousKeyboardState = keyboardState;
 
-            Mouse.SetPosition(windowCenter.X, windowCenter.Y);
-
-            if (!KeyPressed(Keys.Space)) // Don't move camera on first frame
-                Graphics.AdjustCameraPan(mouseDelta.X * MathF.PI * 2, mouseDelta.Y * MathF.PI * 2);
-        }
-
-        if (KeyPressed(Keys.E))
-            Graphics.AdjustCameraPan(MathF.PI / 2 * 1000f);
-
-        _previousKeyboardState = _keyboardState;
+        base.Update(gameTime);
     }
 
-    public bool KeyPressed(Keys k)
+    public bool KeyPressed(KeyboardState keyboardState, Keys k)
     {
-        return _keyboardState.IsKeyDown(k) && !_previousKeyboardState.IsKeyDown(k);
+        return keyboardState.IsKeyDown(k) && !_previousKeyboardState.IsKeyDown(k);
     }
 
-    /// <summary>
-    ///     'FrameDraw' is automatically called once per frame if there is enough CPU. Otherwise its called more slowly.
-    ///     This is where you would typically draw the scene.
-    /// </summary>
-    /// <param name="timeInfo">Provides a snapshot of timing values.</param>
-    protected override void FrameDraw(GameTime timeInfo)
+    protected override void Draw(GameTime gameTime)
     {
+        GraphicsDevice.Clear(Color.CornflowerBlue);
 
-        //Thread.Sleep(100);
-        //Console.WriteLine(timeInfo.ElapsedGameTime.TotalMilliseconds);
-        // handle the standard mouse and key commands for controlling the 3D view
-        // var mouseRay = Graphics.DoDefaultGui();
+        var mesh = _bunnyModel.Meshes.First();
+        var effect = (BasicEffect)mesh.Effects.First();
 
-        if (Graphics.Zoom > 150)
-            Graphics.Zoom = 150;
+        effect.EnableDefaultLighting();
+        effect.DiffuseColor = new Vector3(1f, 0.5f, 0f);
+        //effect.AmbientLightColor = new Vector3(1f, 0, 0);
+        effect.World = Matrix.CreateWorld(_bunnyPosition, Vector3.Forward, Vector3.Up);
+        effect.Projection = _projectionMatrix;
+        effect.View = _viewMatrix;
 
-        // Did user CTRL-leftClick in the 3D display?
-        //if (mouseRay != null)
-        //{
-        //	// search the sprite tree for sprites that had a radius within the selection ray
-        //	var sprites = TopSprite.GetRayIntersections((Ray)mouseRay);
-        //	foreach (var s in sprites)
-        //		Console.WriteLine(s);
-        //}
-
-        _skybox.Draw();
-
-        //var hudDist = (float)-(Graphics.CurrentNearClip + Graphics.CurrentFarClip) / 2;
-        //_hudBackground.Matrix = Matrix.CreateScale(.4f, .4f, .4f) * Matrix.CreateTranslation(0, 0, hudDist);
-
-
-        void UpdateDisplayPlayer(string name, int i, IReadOnlyList<PlayerState> playerStates)
+        void DrawPlayer(PlayerState playerState, Vector3 colour)
         {
-            _topSprite[name].Matrix =
-                Matrix.CreateScale(0.1f) *
-                Matrix.CreateRotationX(MathF.PI * 0.5f) *
-                Matrix.CreateRotationZ(MathF.PI  * 1.5f) *
-                Matrix.CreateTranslation(playerStates[i].Position);
+            // effect.World = Matrix.CreateWorld(player.Position, Vector3.Forward, Vector3.Up);
+            var rotation = Quaternion.CreateFromYawPitchRoll(playerState.Rotation.X, playerState.Rotation.Y, 0f);
+             effect.World = Matrix.CreateScale(0.1f) * Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(playerState.Position);
+
+            //effect.World = Matrix.CreateWorld(playerState.Position, Vector3.Forward, Vector3.Up);
+            effect.DiffuseColor = colour;
+            mesh.Draw();
         }
 
-        void UpdateDisplayPlayers(bool shouldDisplay, string name, IReadOnlyList<PlayerState> playerStates)
+        void DrawPlayers(PlayerState[] players, float brightness)
         {
-            if (!shouldDisplay)
-                return;
+            var rand = new Random(1);
 
-            for (var i = 1; i < _gameStateManager.PlayerCount; i++)
+            for (var index = 1; index < players.Length; index++)
             {
-                UpdateDisplayPlayer(name + i, i, playerStates);
+                var player = players[index];
+                var colour = new Vector3((float)rand.NextDouble() * brightness,
+                    (float)rand.NextDouble() * brightness,
+                    (float)rand.NextDouble() * brightness);
+                DrawPlayer(player, colour);
             }
         }
 
-        UpdateDisplayPlayer("clientPlayer", 0, _gameState.Players);
+        DrawPlayer(_gameState.Players[0], Vector3.One);
 
-        UpdateDisplayPlayers(_displayRealTimePlayer, "realTimePlayer", _realTimeGameState.Players);
-        UpdateDisplayPlayers(_displayClientPlayers, "clientPlayer", _gameState.Players);
-        UpdateDisplayPlayers(_displaySmoothedPlayer, "smoothedPlayer", _smoothedPlayers);
+        if (_displayRealTimePlayer) 
+            DrawPlayers(_realTimeGameState.Players, 0.25f);
 
-        // UpdateDrawPlayerSprites(_playerSprites, _gameState.Players);
-        //
-        // UpdateDrawPlayerSprites(_realTimePlayerSprites, _realTimeGameState.Players);
-        //
-        // UpdateDrawPlayerSprites(_smoothedPlayerSprites, _smoothedPlayers);
+        if (_displayClientPlayers)
+            DrawPlayers(_gameState.Players, 0.5f);
 
-        //for (var i = 1; i < _gameState.Players.Length; i++)
-        //{
-        //    //TopSprite["clientPlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) * Matrix.CreateTranslation(GameState.Players[i].Position);
+        if (_displaySmoothedPlayer)
+            DrawPlayers(_smoothedPlayers, 1f);
 
-        //    _topSprite["realTimePlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
-        //                                              Matrix.CreateTranslation(_realTimeGameState.Players[i].Position);
-
-        //    _topSprite["smoothedPlayer" + i].Matrix = Matrix.CreateRotationX(MathF.PI / 2f) *
-        //                                              Matrix.CreateTranslation(_smoothedPlayers[i].Position);
-        //}
-
-        _topSprite.Draw();
-
-        Graphics.SetSpriteToCamera(_topHudSprite);
-        Graphics.GraphicsDevice.DepthStencilState = DepthStencilState.None;
-        _topHudSprite.Draw();
-        Graphics.GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-
-        //var MyMenuText = String.Format("{0}\nEye: {1}\nLookAt: {2}\nMaxDistance: {3}\nMinDistance: {4}\nViewAngle: {5}\nModelLod: {6}\nModelApparentSize: {7}",
-        //	Help,
-        //	Graphics.Eye,
-        //	Graphics.LookAt,
-        //	Graphics.MaxCamDistance,
-        //	Graphics.MinCamDistance,
-        //	Graphics.Zoom,
-        //	Model.LodTarget,
-        //	Model.ApparentSize
-        //);
-
-        //var MyMenuText = $"{ Help}\n" +
-        //    $"Eye: { Graphics.Eye}\n" +
-        //    $"LookAt: { Graphics.LookAt}\n" +
-        //    $"MaxDistance: { (object)Graphics.MaxCamDistance}\n" +
-        //    $"MinDistance: { (object)Graphics.MinCamDistance}\n" +
-        //    $"ViewAngle: { (object)Graphics.Zoom}\n" +
-        //    $"ModelLod: { (object)Model.LodTarget}\n" +
-        //    $"ModelApparentSize: { (object)Model.ApparentSize }";
-
-        //var MyMenuText = $"FrameProcTime: {_frameProcTime.TotalMilliseconds:0.0000}, ({1f / _frameProcTime.TotalSeconds:0.00})\n" +
-        //    $"FrameDraw: { timeInfo.ElapsedGameTime.TotalMilliseconds:0.0000}, ({1f / timeInfo.ElapsedGameTime.TotalSeconds:0.00})";
-
-        // var myMenuText = $"Position: {_gameState.Players[0].Position.LengthSquared():0.00000}\n" +
-        //  $"Velocity: {_gameState.Players[0].Velocity.LengthSquared()}\n" +
-        //  $"{_gameState.Players[0].Velocity == Vector3.Zero}";
-
-        var myMenuText = $"Delay (Up and Down Arrows): {_delay*_gameStateManager.TickDuration}ms\n" +
-                         $"Display realTime players (I) = {_displayRealTimePlayer}\n" +
-                         $"Display client players (O) = {_displayClientPlayers}\n" +
-                         $"Display smoothed players (P) = {_displaySmoothedPlayer}";
-
-        try
-        {
-            // handle undrawable characters for the specified font(like the infinity symbol)
-            try
-            {
-                Graphics.DrawText(myMenuText, _font, new Vector2(50, 50));
-            }
-            catch
-            {
-                // ignored
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-
-        /*
-        Console.WriteLine("{0}  {1}  {2}  {3}  {4}",
-            graphics.CurrentNearClip,
-            graphics.CurrentFarClip,
-            graphics.MinCamDistance,
-            graphics.MaxCamDistance,
-            hudDist
-        );
-        */
-        //Console.WriteLine(model.LodCurrentIndex);
-    }
-
-    public bool KeyReleased(Keys k)
-    {
-        return _keyboardState.IsKeyUp(k) && _previousKeyboardState.IsKeyDown(k);
+        base.Draw(gameTime);
     }
 }

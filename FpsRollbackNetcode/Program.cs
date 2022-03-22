@@ -11,9 +11,7 @@ public static class Program
     [STAThread]
     private static void Main()
     {
-        using (var win = new Game())
-        {
-            win.Run();
-        }
+        using var win = new Game();
+        win.Run();
     }
 }
