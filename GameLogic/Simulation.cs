@@ -24,10 +24,17 @@ public static class PlayerSimulation
 
     public static PlayerState Next(float delta, PlayerState previous, PlayerInput playerInput)
     {
-        var deltaSeconds = delta; // / 1000f;
-
         var position = previous.Position;
         var velocity = previous.Velocity;
+        // var rotation = previous.Rotation + new Vector2(playerInput.MouseDelta.X * 0.001f, playerInput.MouseDelta.Y * 0.001f);
+        var rotation = new Vector2(WrapRadians(previous.Rotation.X + playerInput.MouseDelta.X * 0.001f), Math.Clamp(previous.Rotation.Y + playerInput.MouseDelta.Y * 0.001f, -MathF.PI * 0.5f, + MathF.PI * 0.5f));
+
+        float WrapRadians(float value)
+        {
+            var times = (float)Math.Floor((value + MathF.PI) / (MathF.PI *2f));
+
+            return value - (times * (MathF.PI *2f));
+        }
 
         var playerActions = playerInput.PlayerActions;
 
@@ -36,33 +43,33 @@ public static class PlayerSimulation
         if (playerActions != PlayerAction.None)
         {
             if (playerActions.HasFlag(PlayerAction.MoveForward))
-                direction.Y += 1f;
+                direction += Vector3.Forward;
 
             if (playerActions.HasFlag(PlayerAction.MoveBackward))
-                direction.Y -= 1f;
+                direction += Vector3.Backward;
 
             if (playerActions.HasFlag(PlayerAction.MoveRight))
-                direction.X += 1f;
+                direction += Vector3.Right;
 
             if (playerActions.HasFlag(PlayerAction.MoveLeft))
-                direction.X -= 1f;
+                direction += Vector3.Left;
 
             if (direction != Vector3.Zero)
                 direction = Vector3.Normalize(direction);
+
+            direction = Vector3.Transform(direction, Matrix.CreateRotationY(rotation.X));
         }
         else
         {
-            // the player is not inputting any morevment actions 
-            if (velocity.LengthSquared() <=
-                MathF.Pow(Acceleration * deltaSeconds,
-                    2f)) // if applying one ticks worth of deceleration would result in the player accelerating in the opposite direction
+            // the player is not inputting any movement actions 
+            if (velocity.LengthSquared() <= MathF.Pow(Acceleration * delta, 2f)) // if applying one ticks worth of deceleration would result in the player accelerating in the opposite direction
                 velocity = Vector3.Zero; // zero the velocity
             else // if the player is moving
                 direction = -Vector3
                     .Normalize(velocity); // act as if they are trying to move in the opposite direction of their current direction
         }
 
-        velocity += direction * Acceleration * deltaSeconds;
+        velocity += direction * Acceleration * delta;
 
         //velocity *= 1f - DRAG_COEFFICIENT * deltaSeconds;
 
@@ -72,13 +79,14 @@ public static class PlayerSimulation
             velocity *= MaxVelocity;
         }
 
-        position += velocity * deltaSeconds;
+        position += velocity * delta;
 
 
         return new PlayerState
         {
             Position = position,
-            Velocity = velocity
+            Velocity = velocity,
+            Rotation = rotation
         };
     }
 }

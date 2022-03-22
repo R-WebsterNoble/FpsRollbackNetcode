@@ -88,6 +88,7 @@ public class Game : Microsoft.Xna.Framework.Game
         _bunnyModel = Content.Load<Model>("bunny");
 
         IsFixedTimeStep = false;
+        //TargetElapsedTime = TimeSpan.FromMilliseconds(10);
 
         _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT, WIGGLE_FREQUENCY);
             
@@ -140,6 +141,7 @@ public class Game : Microsoft.Xna.Framework.Game
 
             Mouse.SetPosition(windowCenter.X, windowCenter.Y);
         }
+        
 
         const float CAMERA_MOVEMENT_SPEED = 0.005f;
         var movementDelta = (CAMERA_MOVEMENT_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds);
@@ -296,8 +298,8 @@ public class Game : Microsoft.Xna.Framework.Game
         void DrawPlayer(PlayerState playerState, Vector3 colour)
         {
             // effect.World = Matrix.CreateWorld(player.Position, Vector3.Forward, Vector3.Up);
-            var rotation = Quaternion.CreateFromYawPitchRoll(playerState.Rotation.X, playerState.Rotation.Y, 0f);
-             effect.World = Matrix.CreateScale(0.1f) * Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(playerState.Position);
+            var rotation = Quaternion.CreateFromYawPitchRoll(playerState.Rotation.X - MathF.PI / 2, playerState.Rotation.Y, 0f);
+            effect.World = Matrix.CreateScale(0.1f) * Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(playerState.Position);
 
             //effect.World = Matrix.CreateWorld(playerState.Position, Vector3.Forward, Vector3.Up);
             effect.DiffuseColor = colour;

@@ -102,22 +102,26 @@ public class GameStateManager
         Array.Copy(LatestInputs, playerInputs, PlayerCount);
         playerInputs[0] = playerInput;
 
-        PlayerAction GetAction(int tickNum)
+        PlayerInput GetInput(int tickNum)
         {
             if (controlAll)
-                return playerInput.PlayerActions;
-            return tickNum * TickDuration % _wiggleFrequency < _wiggleFrequency / 2f
-                ? PlayerAction.MoveForward
-                : PlayerAction.MoveBackward;
+                return new PlayerInput{PlayerActions = playerInput.PlayerActions , MouseDelta = playerInput.MouseDelta};
+            return new PlayerInput
+            {
+                PlayerActions = tickNum * TickDuration % _wiggleFrequency < _wiggleFrequency / 2f
+                    ? PlayerAction.MoveForward
+                    : PlayerAction.MoveBackward,
+                MouseDelta = Point.Zero
+            };
         }
 
-        PlayerInput[] MakeInputs(PlayerAction action)
+        PlayerInput[] MakeInputs(PlayerInput input)
         {
-            return Enumerable.Range(0, PlayerCount).Select(_ => new PlayerInput { PlayerActions = action }).ToArray();
+            return Enumerable.Range(0, PlayerCount).Select(_ => new PlayerInput { PlayerActions = input.PlayerActions, MouseDelta = input.MouseDelta}).ToArray();
         }
 
-        var action = GetAction(TickNum);
-        var inputs = MakeInputs(action);
+        var input = GetInput(TickNum);
+        var inputs = MakeInputs(input);
         while (_timeRemainingAfterProcessingFixedTicks >= TickDuration)
         {
             _lastRealTimeTick = Simulation.Next(TickDuration, _lastRealTimeTick, inputs);
@@ -146,12 +150,13 @@ public class GameStateManager
 
             TickNum++;
 
-            action = GetAction(TickNum);
-            inputs = MakeInputs(action);
+            input = GetInput(TickNum);
+            inputs = MakeInputs(input);
 
             _timeRemainingAfterProcessingFixedTicks -= TickDuration;
         }
-        
+        //Console.WriteLine(string.Join(',', GamesStates.Select(s=>$"{s.PlayerInputs[9].MouseDelta.X,3}")));
+        //Console.WriteLine(GamesStates.Select(s => s.PlayerInputs[9].MouseDelta.X).Sum());
         return (Simulation.Next(_timeRemainingAfterProcessingFixedTicks, Latest, playerInputs),
             Simulation.Next(_timeRemainingAfterProcessingFixedTicks, _lastRealTimeTick, inputs));
     }

@@ -24,9 +24,12 @@ public class PlayerInput
 {
     public PlayerAction PlayerActions;
 
-    public static PlayerInput CreatePlayerInput(KeyboardState keyboard)
+    public static PlayerInput CreatePlayerInput(KeyboardState keyboard, Point mouseDelta)
     {
-        var playerInput = new PlayerInput();
+        var playerInput = new PlayerInput
+        {
+            MouseDelta = new Point(mouseDelta.X, 0)//mouseDelta.Y)
+        };
 
         if (keyboard.IsKeyDown(Keys.W))
             playerInput.PlayerActions = PlayerAction.MoveForward;
@@ -43,9 +46,15 @@ public class PlayerInput
         return playerInput;
     }
 
-    public override string ToString()
+    public Point MouseDelta { get; set; } = Point.Zero;
+    public static PlayerInput None => new();
+
+    public static PlayerInput operator +(PlayerInput value1, PlayerInput value2)
     {
-        return PlayerActions.ToString();
+        value1.PlayerActions |= value2.PlayerActions;
+        value1.MouseDelta += value2.MouseDelta;
+        
+        return value1;
     }
 
     public static PlayerInput[] Empty(int count)
@@ -53,17 +62,10 @@ public class PlayerInput
         return Enumerable.Range(0, count).Select(_ => new PlayerInput()).ToArray();
     }
 
-    //public PlayerInput Combine(PlayerInput newPlayerInput)
-    //{
-    //    if (tickNum != newPlayerInput.tickNum)
-    //        throw new InvalidOperationException("Unable to combine player inputs from diffrent ticks");
-
-    //    return new PlayerInput 
-    //    {
-    //        tickNum = tickNum,
-    //        playerActions = playerActions | newPlayerInput.playerActions
-    //    };
-    //}
+    public override string ToString()
+    {
+        return PlayerActions.ToString();
+    }
 }
 
 [Flags]
@@ -80,4 +82,5 @@ public class PlayerState
 {
     public Vector3 Position = Vector3.Zero;
     public Vector3 Velocity = Vector3.Zero;
+    public Vector2 Rotation = Vector2.Zero;
 }
