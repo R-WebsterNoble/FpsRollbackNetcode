@@ -1,4 +1,6 @@
-﻿using GameLogic;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+using GameLogic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -63,6 +65,8 @@ public class Game : Microsoft.Xna.Framework.Game
     private bool _displayRealTimePlayer = true;
     private bool _displayClientPlayers;
     private bool _displaySmoothedPlayer;
+    private static readonly bool IsOsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+    private static readonly IntPtr Handle = Process.GetCurrentProcess().MainWindowHandle;
 
     public Game()
     {
@@ -119,6 +123,25 @@ public class Game : Microsoft.Xna.Framework.Game
 
     }
 
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out Point lpPoint);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetCursorPos(int X, int Y);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;        // x position of upper-left corner
+        public int Top;         // y position of upper-left corner
+        public int Right;       // x position of lower-right corner
+        public int Bottom;      // y position of lower-right corner
+    }
+
     protected override void Update(GameTime gameTime)
     {
         var keyboardState = Keyboard.GetState();
@@ -132,14 +155,33 @@ public class Game : Microsoft.Xna.Framework.Game
 
         if (keyboardState.IsKeyDown(Keys.Space) || mouseState.RightButton == ButtonState.Pressed)
         {
-            var windowCenter = new Point(Window.ClientBounds.Width / 2, Window.ClientBounds.Height / 2);
+            Point windowCenter;
+            if (IsOsWindows)
+            {
+                GetWindowRect(Handle, out var rct);
+                var centerX = rct.Left + (rct.Right - rct.Left) / 2;
+                var centerY = rct.Top + (rct.Bottom - rct.Top) / 2;
+                windowCenter = new Point(centerX, centerY);
+            }
+            else
+            {
+                windowCenter = new Point(Window.ClientBounds.Width / 2, Window.ClientBounds.Height / 2);
+            }
 
             if (_previousKeyboardState.IsKeyDown(Keys.Space) || _previousMouseState.RightButton == ButtonState.Pressed)
             {
-                mouseDelta = windowCenter - mouseState.Position;
-            }
+                Point cursorPos;
+                if(IsOsWindows)
+                    GetCursorPos(out cursorPos);
+                else
+                    cursorPos = mouseState.Position;
 
-            Mouse.SetPosition(windowCenter.X, windowCenter.Y);
+                mouseDelta = windowCenter - cursorPos;
+            }
+            if (IsOsWindows)
+                SetCursorPos(windowCenter.X, windowCenter.Y);
+            else
+                Mouse.SetPosition(windowCenter.X, windowCenter.Y);
         }
         
 
