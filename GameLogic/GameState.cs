@@ -28,7 +28,7 @@ public class PlayerInput
     {
         var playerInput = new PlayerInput
         {
-            MouseDelta = new Point(mouseDelta.X, 0)//mouseDelta.Y)
+            MouseDelta = new Point(mouseDelta.X, mouseDelta.Y)
         };
 
         if (keyboard.IsKeyDown(Keys.W))

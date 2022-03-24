@@ -30,15 +30,17 @@ public class Game : Microsoft.Xna.Framework.Game
     private const float MAX_ROLLBACK_TIME = 500f;
     private const int PLAYER_COUNT = 10;
         
-    private const float ACCELERATION = 0.01f / 1000f;
+    // private const float ACCELERATION = 0.01f / 1000f;
     private const float MAX_VELOCITY = 0.002f;
         
     private const float SMOOTHING_LERP = 0.0005f;
-        
     private const float SMOOTHING_LINEAR = MAX_VELOCITY * 1.45f;
-        
+
+    private const float SMOOTHING_ROT_LERP = 0.01f;
+    private const float SMOOTHING_ROT_LIN = 0.003f;
+
     private const float WIGGLE_FREQUENCY = 2000f;
-        
+
     private readonly float _skyboxDiameter = 1000000f;
     // private TimeSpan _frameProcTime;
         
@@ -94,9 +96,16 @@ public class Game : Microsoft.Xna.Framework.Game
         IsFixedTimeStep = false;
         //TargetElapsedTime = TimeSpan.FromMilliseconds(10);
 
-        _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT, WIGGLE_FREQUENCY);
-            
-        _resycSmoothing = new ResycSmoothing(_gameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
+        _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND,
+            MAX_ROLLBACK_TIME,
+            PLAYER_COUNT,
+            WIGGLE_FREQUENCY);
+
+        _resycSmoothing = new ResycSmoothing(_gameStateManager.Latest.Players,
+            SMOOTHING_LERP,
+            SMOOTHING_LINEAR,
+            SMOOTHING_ROT_LERP,
+            SMOOTHING_ROT_LIN);
             
         //GameState = new GameState() 
         //{
@@ -284,7 +293,7 @@ public class Game : Microsoft.Xna.Framework.Game
         {
             _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND, MAX_ROLLBACK_TIME, PLAYER_COUNT,
                 WIGGLE_FREQUENCY);
-            _resycSmoothing = new ResycSmoothing(_gameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR);
+            _resycSmoothing = new ResycSmoothing(_gameStateManager.Latest.Players, SMOOTHING_LERP, SMOOTHING_LINEAR, 0.01f, 0.003f);
         }
             
         if (KeyPressed(keyboardState, Keys.C)) 
@@ -340,7 +349,7 @@ public class Game : Microsoft.Xna.Framework.Game
         void DrawPlayer(PlayerState playerState, Vector3 colour)
         {
             // effect.World = Matrix.CreateWorld(player.Position, Vector3.Forward, Vector3.Up);
-            var rotation = Quaternion.CreateFromYawPitchRoll(playerState.Rotation.X - MathF.PI / 2, playerState.Rotation.Y, 0f);
+            var rotation = Quaternion.CreateFromYawPitchRoll(playerState.Rotation.X, playerState.Rotation.Y, 0f);
             effect.World = Matrix.CreateScale(0.1f) * Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(playerState.Position);
 
             //effect.World = Matrix.CreateWorld(playerState.Position, Vector3.Forward, Vector3.Up);
