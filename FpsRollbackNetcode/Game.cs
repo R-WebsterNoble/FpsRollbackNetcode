@@ -93,8 +93,14 @@ public class Game : Microsoft.Xna.Framework.Game
 
         _bunnyModel = Content.Load<Model>("bunny");
 
-        IsFixedTimeStep = false;
-        //TargetElapsedTime = TimeSpan.FromMilliseconds(10);
+        if (Debugger.IsAttached)
+        {
+            //workaround for inconsisent frame times when debugging
+            IsFixedTimeStep = true;
+            TargetElapsedTime = TimeSpan.FromSeconds(1.0 / 144.0);
+        }
+        else
+            IsFixedTimeStep = false;
 
         _gameStateManager = new GameStateManager(1000f / TICKS_PER_SECOND,
             MAX_ROLLBACK_TIME,
@@ -186,6 +192,9 @@ public class Game : Microsoft.Xna.Framework.Game
                     cursorPos = mouseState.Position;
 
                 mouseDelta = windowCenter - cursorPos;
+                
+
+                Console.Write($"{mouseDelta.X,3},{(int)gameTime.ElapsedGameTime.TotalMilliseconds,3}|");
             }
             if (IsOsWindows)
                 SetCursorPos(windowCenter.X, windowCenter.Y);
