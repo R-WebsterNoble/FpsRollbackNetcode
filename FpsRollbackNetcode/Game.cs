@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using BepuPhysics;
 using GameLogic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -69,6 +70,10 @@ public class Game : Microsoft.Xna.Framework.Game
     private bool _displaySmoothedPlayer;
     private static readonly bool IsOsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     private static readonly IntPtr Handle = Process.GetCurrentProcess().MainWindowHandle;
+    private StaticHandle _box;
+    private BodyHandle[] _spheres;
+    private Model _sphereModel;
+    private Model _cubeModel;
 
     public Game()
     {
@@ -92,6 +97,14 @@ public class Game : Microsoft.Xna.Framework.Game
         _cameraRotation = new Vector2(0f, -0.25f);
 
         _bunnyModel = Content.Load<Model>("bunny");
+        var bunnyMesh = _bunnyModel.Meshes.First();
+        var bunnyEffect = (BasicEffect)bunnyMesh.Effects.First();
+        bunnyEffect.EnableDefaultLighting();
+        bunnyEffect.DiffuseColor = new Vector3(1f, 0.5f, 0f);
+        //effect.AmbientLightColor = new Vector3(1f, 0, 0);
+        bunnyEffect.World = Matrix.CreateWorld(_bunnyPosition, Vector3.Forward, Vector3.Up);
+        bunnyEffect.Projection = _projectionMatrix;
+        bunnyEffect.View = _viewMatrix;
 
         if (Debugger.IsAttached)
         {
@@ -118,7 +131,6 @@ public class Game : Microsoft.Xna.Framework.Game
         //	Players = Enumerable.Range(0, 10).Select(i => new PlayerState() { Position = new Vector3((float)Rand.NextDouble()-0.5f, (float)Rand.NextDouble()-0.5f, 0f) }).ToArray()
         //};
             
-        _bunnyModel = Content.Load<Model>("bunny");
 
         for (var i = 1; i < _gameStateManager.PlayerCount; i++)
         {
@@ -126,6 +138,34 @@ public class Game : Microsoft.Xna.Framework.Game
             Console.WriteLine($"player : {i} = {playerRollbackTicks * _gameStateManager.TickDuration}");
         }
 
+        Physics.Initialise();
+
+
+        _cubeModel = Content.Load<Model>("cube");
+        var cubeMesh = _cubeModel.Meshes.First();
+        var cubeEffect = (BasicEffect)cubeMesh.Effects.First();
+        cubeEffect.EnableDefaultLighting();
+        cubeEffect.DiffuseColor = new Vector3(1f, 0.5f, 0f);
+        //effect.AmbientLightColor = new Vector3(1f, 0, 0);
+        cubeEffect.World = Matrix.CreateWorld(Vector3.Zero, Vector3.Forward, Vector3.Up);
+        cubeEffect.Projection = _projectionMatrix;
+        cubeEffect.View = _viewMatrix;
+
+        _box = Physics.AddStaticBox(new System.Numerics.Vector3(0f,-0.5f,0f), System.Numerics.Quaternion.CreateFromYawPitchRoll(0f,0f,0.01f),  20f, 1f, 20f);
+
+        _sphereModel = Content.Load<Model>("icosphere");
+        var sphereMesh = _sphereModel.Meshes.First();
+        var sphereEffect = (BasicEffect)sphereMesh.Effects.First();
+        sphereEffect.EnableDefaultLighting();
+        sphereEffect.DiffuseColor = new Vector3(1f, 0.5f, 0f);
+        //effect.AmbientLightColor = new Vector3(1f, 0, 0);
+        sphereEffect.World = Matrix.CreateWorld(new Vector3(0f, 5f, 0f), Vector3.Forward, Vector3.Up);
+        sphereEffect.Projection = _projectionMatrix;
+        sphereEffect.View = _viewMatrix;
+
+        _spheres = Enumerable.Range(0, 10)
+            .Select(i => Physics.AddBall(new System.Numerics.Vector3(i%2 * 0.1f, -0.5f + i * 1.1f, i % 3 * 0.1f), 0.5f))
+            .ToArray();
     }
 
     protected override void LoadContent()
@@ -159,6 +199,10 @@ public class Game : Microsoft.Xna.Framework.Game
 
     protected override void Update(GameTime gameTime)
     {
+        var deltaTime = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+        if(deltaTime == 0f)
+            return;
+
         var keyboardState = Keyboard.GetState();
         var mouseState = Mouse.GetState();
 
@@ -192,9 +236,6 @@ public class Game : Microsoft.Xna.Framework.Game
                     cursorPos = mouseState.Position;
 
                 mouseDelta = windowCenter - cursorPos;
-                
-
-                Console.Write($"{mouseDelta.X,3},{(int)gameTime.ElapsedGameTime.TotalMilliseconds,3}|");
             }
             if (IsOsWindows)
                 SetCursorPos(windowCenter.X, windowCenter.Y);
@@ -314,7 +355,6 @@ public class Game : Microsoft.Xna.Framework.Game
         if (KeyPressed(keyboardState, Keys.Down))
             _delay = Math.Max(_delay - 1, 0);
 
-        var deltaTime = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             
 
         var playerInput = keyboardState.IsKeyDown(Keys.Space) ? new PlayerInput() : PlayerInput.CreatePlayerInput(keyboardState, mouseDelta);
@@ -329,6 +369,7 @@ public class Game : Microsoft.Xna.Framework.Game
             
         _smoothedPlayers = _resycSmoothing.SmoothPlayers(_delayedGameState.Players, deltaTime);
 
+        Physics.Simulate(deltaTime);
 
         _previousMouseState = mouseState;
         _previousKeyboardState = keyboardState;
@@ -345,25 +386,25 @@ public class Game : Microsoft.Xna.Framework.Game
     {
         GraphicsDevice.Clear(Color.CornflowerBlue);
 
-        var mesh = _bunnyModel.Meshes.First();
-        var effect = (BasicEffect)mesh.Effects.First();
+        var bunnyMesh = _bunnyModel.Meshes.First();
+        var bunnyEffect = (BasicEffect)bunnyMesh.Effects.First();
 
-        effect.EnableDefaultLighting();
-        effect.DiffuseColor = new Vector3(1f, 0.5f, 0f);
-        //effect.AmbientLightColor = new Vector3(1f, 0, 0);
-        effect.World = Matrix.CreateWorld(_bunnyPosition, Vector3.Forward, Vector3.Up);
-        effect.Projection = _projectionMatrix;
-        effect.View = _viewMatrix;
+        // bunnyEffect.EnableDefaultLighting();
+        // bunnyEffect.DiffuseColor = new Vector3(1f, 0.5f, 0f);
+        // //effect.AmbientLightColor = new Vector3(1f, 0, 0);
+        bunnyEffect.World = Matrix.CreateWorld(_bunnyPosition, Vector3.Forward, Vector3.Up);
+        bunnyEffect.Projection = _projectionMatrix;
+        bunnyEffect.View = _viewMatrix;
 
         void DrawPlayer(PlayerState playerState, Vector3 colour)
         {
             // effect.World = Matrix.CreateWorld(player.Position, Vector3.Forward, Vector3.Up);
             var rotation = Quaternion.CreateFromYawPitchRoll(playerState.Rotation.X, playerState.Rotation.Y, 0f);
-            effect.World = Matrix.CreateScale(0.1f) * Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(playerState.Position);
+            bunnyEffect.World = Matrix.CreateScale(0.1f) * Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(playerState.Position);
 
             //effect.World = Matrix.CreateWorld(playerState.Position, Vector3.Forward, Vector3.Up);
-            effect.DiffuseColor = colour;
-            mesh.Draw();
+            bunnyEffect.DiffuseColor = colour;
+            bunnyMesh.Draw();
         }
 
         void DrawPlayers(PlayerState[] players, float brightness)
@@ -391,6 +432,57 @@ public class Game : Microsoft.Xna.Framework.Game
         if (_displaySmoothedPlayer)
             DrawPlayers(_smoothedPlayers, 1f);
 
+        void DrawPhysicsObject(Model model, RigidPose pose, Vector3 scale)
+        {
+            var mesh = model.Meshes.First();
+            var effect = (BasicEffect)mesh.Effects.First();
+            effect.View = _viewMatrix;
+            effect.Projection = _projectionMatrix;
+
+            var position = pose.Position;
+            var orientation = pose.Orientation;
+
+            effect.World = Matrix.CreateScale(scale*0.5f) *
+                           Matrix.CreateFromQuaternion(To(orientation)) *
+                           Matrix.CreateTranslation(To(position));
+
+            mesh.Draw();
+        }
+
+        var simulation = Physics.Simulation;
+
+        foreach (var sphere in _spheres)
+        {
+            var boxPose = simulation.Bodies[sphere].Pose;
+            DrawPhysicsObject(_sphereModel, boxPose, Vector3.One);
+        }
+
+        var spherePose = simulation.Statics[_box].Pose;
+        DrawPhysicsObject(_cubeModel, spherePose, new Vector3(20f, 1f, 20f));
+
+
         base.Draw(gameTime);
+    }
+
+
+
+    static System.Numerics.Vector3 To(Vector3 v)
+    {
+        return new System.Numerics.Vector3(v.X, v.Y, v.Z);
+    }
+
+    static System.Numerics.Quaternion To(Quaternion q)
+    {
+        return new System.Numerics.Quaternion(q.X, q.Y, q.Z, q.W);
+    }
+
+    static Vector3 To(System.Numerics.Vector3 v)
+    {
+        return new Vector3(v.X, v.Y, v.Z);
+    }
+
+    static Quaternion To(System.Numerics.Quaternion q)
+    {
+        return new Quaternion(q.X, q.Y, q.Z, q.W);
     }
 }
