@@ -37,6 +37,8 @@ add_sources("Components_uber.cpp"
 add_sources("Rollback_uber.cpp"
     PROJECTS Game
     SOURCE_GROUP "Rollback"
+		"Rollback/GameStateManager.cpp"
+		"Rollback/GameStateManager.h"
 		"Rollback/GameState.cpp"
 		"Rollback/GameState.h"
 		"Rollback/Simulation.cpp"

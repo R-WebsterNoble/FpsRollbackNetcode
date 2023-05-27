@@ -18,6 +18,7 @@
 
 #include "Rollback/RollbackPlayer.h"
 #include "InputFlag.h"
+#include "Rollback/GameState.h"
 
 ////////////////////////////////////////////////////////
 // Represents a player participating in gameplay
@@ -109,10 +110,15 @@ public:
 	void OnReadyForGameplayOnServer();
 	bool IsLocalClient() const { return (m_pEntity->GetFlags() & ENTITY_FLAG_LOCAL_PLAYER) != 0; }
 
+	bool IsAlive() const {	return m_isAlive; }
+
+	void GetInput(CPlayerInput& playerInput);
+	void SetState(const CPlayerState& playerState) const;
+	void UpdateRollbackCameraAndPosition(const CPlayerState& playerState) const;
+
 protected:
 	void Revive(const Matrix34& transform);
-
-
+	
 	void UpdateRollbackPlayer(float frameTime);
 	void UpdateMovementRequest(float frameTime);
 	void UpdateLookDirectionRequest(float frameTime);
@@ -173,4 +179,5 @@ protected:
 	Quat m_lookOrientation; //!< Should translate to head orientation in the future
 	float m_horizontalAngularVelocity;
 	MovingAverage<float, 10> m_averagedHorizontalAngularVelocity;
+	bool m_is_rollback_controlled = true;
 };

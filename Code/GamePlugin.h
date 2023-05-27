@@ -5,6 +5,8 @@
 #include <CryEntitySystem/IEntityClass.h>
 #include <CryNetwork/INetwork.h>
 
+#include "Rollback/GameStateManager.h"
+
 class CPlayerComponent;
 
 // The entry-point of the application
@@ -25,6 +27,8 @@ public:
 	virtual const char* GetCategory() const override { return "Game"; }
 	virtual bool Initialize(SSystemGlobalEnvironment& env, const SSystemInitParams& initParams) override;
 	// ~Cry::IEnginePlugin
+		
+	virtual void MainUpdate(float frameTime) override;
 
 	// ISystemEventListener
 	virtual void OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam) override;
@@ -60,4 +64,6 @@ public:
 protected:
 	// Map containing player components, key is the channel id received in OnClientConnectionReceived
 	std::unordered_map<int, EntityId> m_players;
+
+	CGameStateManager m_gameStateManager = CGameStateManager();
 };
