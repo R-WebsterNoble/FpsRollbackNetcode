@@ -16,12 +16,14 @@ start_sources()
 sources_platform(ALL)
 add_sources("Code_uber.cpp"
     PROJECTS Game
-    SOURCE_GROUP "Root"
+    SOURCE_GROUP "Root"        
+		"InputFlag.h"
 		"GamePlugin.cpp"
 		"StdAfx.cpp"
 		"GamePlugin.h"
 		"StdAfx.h"
 )
+
 add_sources("Components_uber.cpp"
     PROJECTS Game
     SOURCE_GROUP "Components"
@@ -30,6 +32,17 @@ add_sources("Components_uber.cpp"
 		"Components/Bullet.h"
 		"Components/Player.h"
 		"Components/SpawnPoint.h"
+)
+
+add_sources("Rollback_uber.cpp"
+    PROJECTS Game
+    SOURCE_GROUP "Rollback"
+		"Rollback/GameState.cpp"
+		"Rollback/GameState.h"
+		"Rollback/Simulation.cpp"
+		"Rollback/Simulation.h"
+		"Rollback/RollbackPlayer.cpp"
+		"Rollback/RollbackPlayer.h"
 )
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/CVarOverrides.h")

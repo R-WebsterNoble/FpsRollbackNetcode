@@ -16,6 +16,9 @@
 #include <DefaultComponents/Input/InputComponent.h>
 #include <DefaultComponents/Audio/ListenerComponent.h>
 
+#include "Rollback/RollbackPlayer.h"
+#include "InputFlag.h"
+
 ////////////////////////////////////////////////////////
 // Represents a player participating in gameplay
 ////////////////////////////////////////////////////////
@@ -27,13 +30,7 @@ class CPlayerComponent final : public IEntityComponent
 		Toggle
 	};
 
-	enum class EInputFlag : uint8
-	{
-		MoveLeft = 1 << 0,
-		MoveRight = 1 << 1,
-		MoveForward = 1 << 2,
-		MoveBack = 1 << 3
-	};
+
 	
 	static constexpr EEntityAspects InputAspect = eEA_GameClientD;
 
@@ -89,6 +86,7 @@ class CPlayerComponent final : public IEntityComponent
 	};
 
 public:
+
 	CPlayerComponent() = default;
 	virtual ~CPlayerComponent() = default;
 
@@ -114,6 +112,8 @@ public:
 protected:
 	void Revive(const Matrix34& transform);
 
+
+	void UpdateRollbackPlayer(float frameTime);
 	void UpdateMovementRequest(float frameTime);
 	void UpdateLookDirectionRequest(float frameTime);
 	void UpdateAnimation(float frameTime);
@@ -157,6 +157,8 @@ protected:
 	FragmentID m_idleFragmentId;
 	FragmentID m_walkFragmentId;
 	TagID m_rotateTagId;
+
+	CRollbackPlayer m_rollbackPlayer;
 
 	CEnumFlags<EInputFlag> m_inputFlags;
 	Vec2 m_mouseDeltaRotation;

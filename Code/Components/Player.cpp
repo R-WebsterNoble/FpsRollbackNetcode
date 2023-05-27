@@ -5,6 +5,7 @@
 #include "SpawnPoint.h"
 #include "GamePlugin.h"
 
+
 #include <CryRenderer/IRenderAuxGeom.h>
 #include <CrySchematyc/Env/Elements/EnvComponent.h>
 #include <CryCore/StaticInstanceList.h>
@@ -59,7 +60,7 @@ void CPlayerComponent::Initialize()
 	m_pEntity->GetNetEntity()->BindToNetwork();
 	
 	// Register the RemoteReviveOnClient function as a Remote Method Invocation (RMI) that can be executed by the server on clients
-	SRmi<RMI_WRAP(&CPlayerComponent::RemoteReviveOnClient)>::Register(this, eRAT_NoAttach, false, eNRT_ReliableOrdered);
+	SRmi<RMI_WRAP(&CPlayerComponent::RemoteReviveOnClient)>::Register(this, eRAT_NoAttach, false, eNRT_ReliableOrdered);	
 }
 
 void CPlayerComponent::InitializeLocalPlayer()
@@ -87,10 +88,16 @@ void CPlayerComponent::InitializeLocalPlayer()
 	m_pInputComponent->RegisterAction("player", "moveback", [this](int activationMode, float value) { HandleInputFlagChange(EInputFlag::MoveBack, (EActionActivationMode)activationMode);  }); 
 	m_pInputComponent->BindAction("player", "moveback", eAID_KeyboardMouse, EKeyId::eKI_S);
 
-	m_pInputComponent->RegisterAction("player", "mouse_rotateyaw", [this](int activationMode, float value) { m_mouseDeltaRotation.x -= value; });
+	m_pInputComponent->RegisterAction("player", "mouse_rotateyaw", [this](int activationMode, float value)
+	{
+		m_mouseDeltaRotation.x -= value;
+	});
 	m_pInputComponent->BindAction("player", "mouse_rotateyaw", eAID_KeyboardMouse, EKeyId::eKI_MouseX);
 
-	m_pInputComponent->RegisterAction("player", "mouse_rotatepitch", [this](int activationMode, float value) { m_mouseDeltaRotation.y -= value; });
+	m_pInputComponent->RegisterAction("player", "mouse_rotatepitch", [this](int activationMode, float value)
+	{
+		m_mouseDeltaRotation.y -= value;
+	});
 	m_pInputComponent->BindAction("player", "mouse_rotatepitch", eAID_KeyboardMouse, EKeyId::eKI_MouseY);
 
 	// Register the shoot action
@@ -129,6 +136,8 @@ void CPlayerComponent::InitializeLocalPlayer()
 
 	// Bind the shoot action to left mouse click
 	m_pInputComponent->BindAction("player", "shoot", eAID_KeyboardMouse, EKeyId::eKI_Mouse1);
+
+
 }
 
 Cry::Entity::EventFlags CPlayerComponent::GetEventMask() const
@@ -138,6 +147,8 @@ Cry::Entity::EventFlags CPlayerComponent::GetEventMask() const
 		Cry::Entity::EEvent::Update |
 		Cry::Entity::EEvent::Reset;
 }
+
+bool initialized = false;
 
 void CPlayerComponent::ProcessEvent(const SEntityEvent& event)
 {
@@ -153,23 +164,39 @@ void CPlayerComponent::ProcessEvent(const SEntityEvent& event)
 		// Don't update the player if we haven't spawned yet
 		if(!m_isAlive)
 			return;
+
+		if (!initialized) {
+			const IEntity* characterControllerEntity = m_pCharacterController->GetEntity();
+			m_rollbackPlayer.m_position = characterControllerEntity->GetPos();
+			m_rollbackPlayer.m_rotation = characterControllerEntity->GetRotation();
+			initialized = true;
+		}
 		
 		const float frameTime = event.fParam[0];
 
-		// Start by updating the movement request we want to send to the character controller
-		// This results in the physical representation of the character moving
-		UpdateMovementRequest(frameTime);
+		bool rollbackControlled = true;
 
-		// Process mouse input to update look orientation.
-		UpdateLookDirectionRequest(frameTime);
-
-		// Update the animation state of the character
-		UpdateAnimation(frameTime);
-
-		if (IsLocalClient())
+		if(rollbackControlled)
 		{
-			// Update the camera component offset
-			UpdateCamera(frameTime);
+			UpdateRollbackPlayer(frameTime);
+		}
+		else
+		{
+			// Start by updating the movement request we want to send to the character controller
+			// This results in the physical representation of the character moving
+			UpdateMovementRequest(frameTime);
+
+			// Process mouse input to update look orientation.
+			UpdateLookDirectionRequest(frameTime);
+
+			// Update the animation state of the character
+			UpdateAnimation(frameTime);
+
+			if (IsLocalClient())
+			{
+				// Update the camera component offset
+				UpdateCamera(frameTime);
+			}
 		}
 	}
 	break;
@@ -216,6 +243,37 @@ bool CPlayerComponent::NetSerialize(TSerialize ser, EEntityAspects aspect, uint8
 	}
 
 	return true;
+}
+
+void CPlayerComponent::UpdateRollbackPlayer(float frameTime)
+{
+	m_rollbackPlayer.Update(m_inputFlags, m_mouseDeltaRotation, frameTime);
+
+	m_mouseDeltaRotation = ZERO;
+
+	Ang3 rotationAsAng3 = Ang3(m_rollbackPlayer.m_rotation);
+
+	//const Quat rot = Quat(
+	//	CCamera::CreateOrientationYPR(Ang3(rotationAsAng3.x, 0.0f, 0.0f)));
+
+	GetEntity()->SetPosRotScale(m_rollbackPlayer.m_position, m_rollbackPlayer.m_rotation, Vec3(1, 1, 1));
+
+	Matrix34 localTransform = IDENTITY;
+	localTransform.SetRotation33(CCamera::CreateOrientationYPR(Vec3(0.0f, rotationAsAng3.y, 0.0f)));
+
+	const float viewOffsetForward = 0.01f;
+	const float viewOffsetUp = 0.26f;
+
+	if (ICharacterInstance* pCharacter = m_pAnimationComponent->GetCharacter())
+	{
+		// Get the local space orientation of the camera joint
+		const QuatT& cameraOrientation = pCharacter->GetISkeletonPose()->GetAbsJointByID(m_cameraJointId);
+		// Apply the offset to the camera
+		localTransform.SetTranslation(cameraOrientation.t + Vec3(0, viewOffsetForward, viewOffsetUp));
+	}
+
+	m_pCameraComponent->SetTransformMatrix(localTransform);
+	m_pAudioListenerComponent->SetOffset(localTransform.GetTranslation());
 }
 
 void CPlayerComponent::UpdateMovementRequest(float frameTime)
