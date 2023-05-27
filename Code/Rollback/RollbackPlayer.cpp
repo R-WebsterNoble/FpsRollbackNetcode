@@ -41,7 +41,7 @@ void CRollbackPlayer::Update(CEnumFlags<EInputFlag> inputFlags, Vec2 mouseDeltaR
 		{
 			velocity.y += moveSpeed * frameTime;
 		}
-		if (inputFlags & EInputFlag::MoveBack)
+		if (inputFlags & EInputFlag::MoveBackward)
 		{
 			velocity.y -= moveSpeed * frameTime;
 		}

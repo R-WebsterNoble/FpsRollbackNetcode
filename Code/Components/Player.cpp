@@ -85,7 +85,7 @@ void CPlayerComponent::InitializeLocalPlayer()
 	m_pInputComponent->RegisterAction("player", "moveforward", [this](int activationMode, float value) { HandleInputFlagChange(EInputFlag::MoveForward, (EActionActivationMode)activationMode);  });
 	m_pInputComponent->BindAction("player", "moveforward", eAID_KeyboardMouse, EKeyId::eKI_W);
 
-	m_pInputComponent->RegisterAction("player", "moveback", [this](int activationMode, float value) { HandleInputFlagChange(EInputFlag::MoveBack, (EActionActivationMode)activationMode);  });
+	m_pInputComponent->RegisterAction("player", "moveback", [this](int activationMode, float value) { HandleInputFlagChange(EInputFlag::MoveBackward, (EActionActivationMode)activationMode);  });
 	m_pInputComponent->BindAction("player", "moveback", eAID_KeyboardMouse, EKeyId::eKI_S);
 
 	m_pInputComponent->RegisterAction("player", "mouse_rotateyaw", [this](int activationMode, float value)
@@ -259,25 +259,25 @@ void CPlayerComponent::GetInput(CPlayerInput& playerInput)
 	playerInput.mouseDelta = m_mouseDeltaRotation;
 	m_mouseDeltaRotation = ZERO;
 
-	EPlayerActionFlag& playerAction = playerInput.playerActions;
+	EInputFlag& playerAction = playerInput.playerActions;
 
-	playerAction = EPlayerActionFlag::None;
+	playerAction = EInputFlag::None;
 
 	if (m_inputFlags & EInputFlag::MoveLeft)
 	{
-		playerAction |= EPlayerActionFlag::MoveLeft;
+		playerAction |= EInputFlag::MoveLeft;
 	}
 	if (m_inputFlags & EInputFlag::MoveRight)
 	{
-		playerAction |= EPlayerActionFlag::MoveRight;
+		playerAction |= EInputFlag::MoveRight;
 	}
 	if (m_inputFlags & EInputFlag::MoveForward)
 	{
-		playerAction |= EPlayerActionFlag::MoveForward;
+		playerAction |= EInputFlag::MoveForward;
 	}
-	if (m_inputFlags & EInputFlag::MoveBack)
+	if (m_inputFlags & EInputFlag::MoveBackward)
 	{
-		playerAction |= EPlayerActionFlag::MoveBackward;
+		playerAction |= EInputFlag::MoveBackward;
 	}
 }
 
@@ -308,7 +308,7 @@ void CPlayerComponent::UpdateMovementRequest(float frameTime)
 	{
 		velocity.y += moveSpeed * frameTime;
 	}
-	if (m_inputFlags & EInputFlag::MoveBack)
+	if (m_inputFlags & EInputFlag::MoveBackward)
 	{
 		velocity.y -= moveSpeed * frameTime;
 	}

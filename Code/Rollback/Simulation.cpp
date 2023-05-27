@@ -32,19 +32,20 @@ void CSimulation::Next(const float dt, const CPlayerState& pPrevious, const CPla
     pNext.rotation.y = crymath::clamp(pPrevious.rotation.y + playerInput.mouseDelta.y * rotationSpeed, -gf_PI * 0.5f,gf_PI * 0.5f);
 
 	Vec3 direction = Vec3(0.0f, 0.0f, 0.0f);
-
-    if (const EPlayerActionFlag playerActions = playerInput.playerActions; playerActions != None)
+    
+    const EInputFlag playerActions = playerInput.playerActions;
+    if (playerActions != EInputFlag::None)
     {
-	    if (playerActions & MoveForward)
+	    if ((playerActions & EInputFlag::MoveForward) == EInputFlag::MoveForward)
             direction += Vec3(0.0f, 1.0f, 0.0f);
 
-        if (playerActions & MoveBackward)
+        if ((playerActions & EInputFlag::MoveBackward) == EInputFlag::MoveBackward)
             direction += Vec3(0.0f, -1.0f, 0.0f);
         
-        if (playerActions & MoveRight)
+        if ((playerActions & EInputFlag::MoveRight) == EInputFlag::MoveRight)
             direction += Vec3(1.0f, 0.0f, 0.0f);
         
-        if (playerActions & MoveLeft)
+        if ((playerActions & EInputFlag::MoveLeft) == EInputFlag::MoveLeft)
             direction += Vec3(-1.0f, 0.0f, 0.0f);
         
         if (direction != Vec3(0.0f, 0.0f, 0.0f))

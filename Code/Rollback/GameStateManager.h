@@ -28,12 +28,12 @@ public:
 
 		CPlayerInput& pPlayerInput = latest->playerInputs[0];
 		pPlayerInput.mouseDelta = ZERO;
-		pPlayerInput.playerActions = None;
+		pPlayerInput.playerActions = EInputFlag::None;
 
 		latest->tickNum = 0;
 
 		m_inputAccumulator.mouseDelta = ZERO;
-		m_inputAccumulator.playerActions = None;
+		m_inputAccumulator.playerActions = EInputFlag::None;
 	}
 	
 	void Update(const float frameTime, CPlayerComponent* pLocalPlayer);

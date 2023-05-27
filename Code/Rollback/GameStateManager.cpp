@@ -53,7 +53,7 @@ void CGameStateManager::Update(const float frameTime, CPlayerComponent* pLocalPl
 		}
 
 		m_inputAccumulator.mouseDelta = ZERO;
-		m_inputAccumulator.playerActions = None;
+		m_inputAccumulator.playerActions = EInputFlag::None;
 
 		next->playerInputs[0].mouseDelta = mouseDeltaReminder;
 	}

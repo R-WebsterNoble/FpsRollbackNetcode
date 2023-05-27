@@ -1,25 +1,26 @@
 #pragma once
 
+#include "InputFlag.h"
 #include "StdAfx.h"
 
 constexpr int NUM_PLAYERS = 10;
 
-enum EPlayerActionFlag : uint32
-{
-	None = 0,
-	MoveForward = 1 << 1,
-	MoveBackward = 1 << 2,
-	MoveLeft = 1 << 3,
-	MoveRight = 1 << 4,
-};
-
-DEFINE_ENUM_FLAG_OPERATORS(EPlayerActionFlag)
+// enum EPlayerActionFlag : uint32
+// {
+// 	None = 0,
+// 	MoveForward = 1 << 1,
+// 	MoveBackward = 1 << 2,
+// 	MoveLeft = 1 << 3,
+// 	MoveRight = 1 << 4,
+// };
+//
+// DEFINE_ENUM_FLAG_OPERATORS(EPlayerActionFlag)
 
 
 struct CPlayerInput
 {
 	Vec2 mouseDelta;
-	EPlayerActionFlag playerActions;
+	EInputFlag playerActions;
 };
 
 struct CPlayerState
