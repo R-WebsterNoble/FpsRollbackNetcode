@@ -1,6 +1,6 @@
 #pragma once
 
-enum class EInputFlag : uint32
+enum class EInputFlag : uint8
 {
 	None = 0,
 	MoveLeft = 1 << 0,

@@ -33,6 +33,7 @@ CGamePlugin::~CGamePlugin()
 bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitParams& initParams)
 {
 	EnableUpdate(EUpdateStep::MainUpdate, true);
+
 	// Register for engine system events, in our case we need ESYSTEM_EVENT_GAME_POST_INIT to load the map
 	gEnv->pSystem->GetISystemEventDispatcher()->RegisterListener(this, "CGamePlugin");
 
@@ -43,13 +44,17 @@ void CGamePlugin::MainUpdate(float frameTime)
 {
 	if (!gEnv->IsGameOrSimulation())
 		return;
+	
 
-	const IEntity* pPlayerEntity = gEnv->pEntitySystem->GetEntity(LOCAL_PLAYER_ENTITY_ID); // Is there a way to avoid doing this every frame?
+	if (!m_pPlayerEntity)
+	{
+		m_pPlayerEntity = gEnv->pEntitySystem->GetEntity(LOCAL_PLAYER_ENTITY_ID);
 
-	if (!pPlayerEntity)
-		return;
+		if (!m_pPlayerEntity)
+			return;
+	}
 
-	CPlayerComponent* playerComponent = pPlayerEntity->GetComponent<CPlayerComponent>();
+	CPlayerComponent* playerComponent = m_pPlayerEntity->GetComponent<CPlayerComponent>();
 
 	if (playerComponent->IsAlive())
 		m_gameStateManager.Update(frameTime, playerComponent);

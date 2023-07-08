@@ -44,7 +44,7 @@ private:
 	struct CGameStateRingBuffer
 	{
 		static constexpr int buffer_capacity = 64000;
-		CTick m_buffer[buffer_capacity];
+		CTick m_buffer[buffer_capacity]; //28416000 bytes = 28.42 megabytes
 		int m_bufferHead = 0;
 
 		CTick* PeakHead()
@@ -83,6 +83,3 @@ private:
 
 	CGameStateRingBuffer m_gamesStates;
 };
-
-
-
