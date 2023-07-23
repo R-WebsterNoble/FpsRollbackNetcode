@@ -43,9 +43,8 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 
 void CGamePlugin::MainUpdate(float frameTime)
 {
-	if (!gEnv->IsGameOrSimulation())
-		return;
-	
+	if (!gEnv->IsGameOrSimulation() || gEnv->IsDedicated())
+		return;	
 
 	if (!m_pPlayerEntity)
 	{
@@ -57,7 +56,7 @@ void CGamePlugin::MainUpdate(float frameTime)
 
 	CPlayerComponent* playerComponent = m_pPlayerEntity->GetComponent<CPlayerComponent>();
 
-	if (playerComponent->IsAlive())
+	if (playerComponent->IsAlive() && m_pCNetworkClient->GameStarted())
 		m_gameStateManager.Update(frameTime, playerComponent);
 }
 

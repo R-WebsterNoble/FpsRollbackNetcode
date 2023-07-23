@@ -83,6 +83,10 @@ void CNetworkClient::ThreadEntry()
 		{
 			m_playerNumber = buf[1];
 		}
+		else if(buf[0] == 's')
+		{
+			m_gameStarted = true;
+		}
 
 		//print details of the client/peer and the data received
 		// CryLog("NetworkClient: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));

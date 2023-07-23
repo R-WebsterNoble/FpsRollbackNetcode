@@ -9,7 +9,7 @@
 #define BUFLEN 512	//Max length of buffer
 #define PORT 20100	//The port on which to listen for incoming data
 
-static constexpr int PLAYER_COUNT = 1;
+static constexpr int PLAYER_COUNT = 2;
 
 void CNetworkServer::ThreadEntry()
 {
@@ -17,6 +17,8 @@ void CNetworkServer::ThreadEntry()
 	int slen, recv_len;
 	char buf[BUFLEN];
 	WSADATA wsa;
+
+	sockaddr_in clientSockets[PLAYER_COUNT];
 
 	slen = sizeof(si_other);
 
@@ -87,7 +89,24 @@ void CNetworkServer::ThreadEntry()
 				return;
 				// exit(EXIT_FAILURE);
 			}
+			clientSockets[clientConnectionCounter] = si_other;
+
 			clientConnectionCounter++;
+			if (clientConnectionCounter == PLAYER_COUNT)
+			{
+				// send start game signal to clients
+				for (auto& clientSocket : clientSockets)
+				{
+					const char c[] = { 's', '\0' };
+					if (sendto(m_ListenSocket, c, sizeof(c), 0, reinterpret_cast<sockaddr*>(&clientSocket), slen) == SOCKET_ERROR)
+					{
+						const auto e = WSAGetLastError();
+						CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
+						return;
+						// exit(EXIT_FAILURE);
+					}
+				}
+			}
 		}
 
 		packetCounter++;
