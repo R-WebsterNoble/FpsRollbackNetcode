@@ -14,6 +14,7 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
+
 CGamePlugin::~CGamePlugin()
 {
 	// Remove any registered listeners before 'this' becomes invalid
@@ -75,6 +76,88 @@ void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lp
 		{
 			// Load the example map in client server mode
 			gEnv->pConsole->ExecuteString("map example s", false, true);
+
+			// CNetworkServer* m_pCNetworkServer = new CNetworkServer();
+			if (gEnv->IsDedicated())
+			{
+				if (!gEnv->pThreadManager->SpawnThread(m_pCNetworkServer, "CRollbackNetThread"))
+				{
+					// your failure handle code
+					delete m_pCNetworkServer;
+					// CryFatalError(...);
+				}
+			}
+			else
+			{
+				SOCKET serverSocket;
+				sockaddr_in serverAddress;
+				sockaddr_in si_other;
+				int slen;
+				char buf[BUFLEN];
+				WSADATA wsa;
+
+				slen = sizeof(si_other);
+
+				//Initialise winsock
+				CryLog("RollbackNetClient: Initialising Winsock...");
+				if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+				{
+					const auto e = WSAGetLastError();
+					CryFatalError("RollbackNetClient: Failed. Error Code : %d", e);
+					return;
+					//exit(EXIT_FAILURE);
+				}
+				CryLog("RollbackNetClient: Initialised.");
+				
+
+				//Prepare the serverAddress structure
+				serverAddress.sin_family = AF_INET;
+				serverAddress.sin_port = htons(PORT);
+
+				InetPton(AF_INET, "127.0.0.1", &serverAddress.sin_addr.S_un.S_addr);
+
+				serverSocket = socket(AF_INET, SOCK_DGRAM, 0);
+				//Create a socket
+				if (serverSocket == INVALID_SOCKET)
+				{
+					const auto e = WSAGetLastError();
+					CryFatalError("RollbackNetServer: Could not create server socket : %d", e);
+				}
+				CryLog("RollbackNetServer: Server socket created.");
+
+
+				const char c[] = { 'c', '\0' };
+
+				LARGE_INTEGER frequency;
+				if (::QueryPerformanceFrequency(&frequency) == FALSE)
+					throw "foo";
+
+				LARGE_INTEGER start;
+				if (::QueryPerformanceCounter(&start) == FALSE)
+					throw "foo";
+
+				for (int i = 0; i < 1000; ++i)
+				{
+					if (sendto(serverSocket, buf, BUFLEN, 0, reinterpret_cast<sockaddr*>(&serverAddress), sizeof serverAddress) == SOCKET_ERROR)
+					{
+						const auto e = WSAGetLastError();
+						CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
+						return;
+						// exit(EXIT_FAILURE);
+					}
+				}
+
+
+				LARGE_INTEGER end;
+				if (::QueryPerformanceCounter(&end) == FALSE)
+					throw "foo";
+
+				double interval = static_cast<double>(end.QuadPart - start.QuadPart) / frequency.QuadPart;
+
+
+				CryLog("Send 100 packets took %f milliseconds", (interval * 1000));
+
+			}
 		}
 	}
 	break;

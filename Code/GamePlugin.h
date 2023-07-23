@@ -7,6 +7,8 @@
 
 #include "Rollback/GameStateManager.h"
 
+#include "NetworkServer.h"
+
 class CPlayerComponent;
 
 // The entry-point of the application
@@ -21,7 +23,7 @@ public:
 	CRYINTERFACE_SIMPLE(Cry::IEnginePlugin)
 	CRYGENERATE_SINGLETONCLASS_GUID(CGamePlugin, "FirstPersonShooter", "{FC9BD884-49DE-4494-9D64-191734BBB7E3}"_cry_guid)
 
-	virtual ~CGamePlugin();
+	virtual ~CGamePlugin() override;
 	
 	// Cry::IEnginePlugin
 	virtual const char* GetCategory() const override { return "Game"; }
@@ -68,4 +70,6 @@ protected:
 	const IEntity* m_pPlayerEntity;
 
 	CGameStateManager m_gameStateManager = CGameStateManager();
+
+	CNetworkServer* m_pCNetworkServer = new CNetworkServer();
 };

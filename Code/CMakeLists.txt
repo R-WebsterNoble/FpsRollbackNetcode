@@ -9,6 +9,9 @@ include("${TOOLS_CMAKE_DIR}/InitialSetup.cmake")
 include("${TOOLS_CMAKE_DIR}/CommonOptions.cmake")
 
 add_subdirectory("${CRYENGINE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/CRYENGINE")
+#include <IThreadManager.h>
+#include <IThreadManager.h>
+#include <IThreadManager.h>
 
 include("${TOOLS_CMAKE_DIR}/Configure.cmake")
 start_sources()
@@ -16,7 +19,11 @@ start_sources()
 sources_platform(ALL)
 add_sources("Code_uber.cpp"
     PROJECTS Game
-    SOURCE_GROUP "Root"        
+    SOURCE_GROUP "Root"
+		"NetworkServer.h"
+		"NetworkServer.cpp"
+		"NetworkClient.h"
+		"NetworkClient.cpp"
 		"InputFlag.h"
 		"GamePlugin.cpp"
 		"StdAfx.cpp"
