@@ -6,8 +6,7 @@
 
 void CSimulation::Next(const float dt, const CGameState& pPrevious, const CPlayerInput playerInputs[], OUT CGameState& pNext)
 {
-    // for (int i = 0; i < NUM_PLAYERS; i++)
-    for (int i = 0; i < 1; i++)
+    for (int i = 0; i < NUM_PLAYERS; i++)    
     {
         Next(dt, pPrevious.players[i], playerInputs[i], pNext.players[i]);
     }

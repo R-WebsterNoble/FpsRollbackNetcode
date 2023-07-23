@@ -20,16 +20,19 @@ public:
 
 		CTick* latest = m_gamesStates.PeakHead();
 
-		
-		CPlayerState& pPlayerState = latest->gameState.players[0];
-		pPlayerState.position = Vec3(66.0f, 49.0f, 32.0161781f);
-		// pPlayerState.position = Vec3(66.1380920f, 49.5188217f, 32.0161781f);
-		pPlayerState.rotation = ZERO;//Vec3(gf_PI * 0.5f, 0.0f, 0.0f);
-		pPlayerState.velocity = ZERO;
 
-		CPlayerInput& pPlayerInput = latest->playerInputs[0];
-		pPlayerInput.mouseDelta = ZERO;
-		pPlayerInput.playerActions = EInputFlag::None;
+		for (int i = 0; i < NUM_PLAYERS; ++i)
+		{
+			CPlayerState& pPlayerState = latest->gameState.players[i];
+			pPlayerState.position = Vec3(66.0f + (i * 3.0f), 49.0f , 32.0161781f);
+			// pPlayerState.position = Vec3(66.1380920f, 49.5188217f, 32.0161781f);
+			pPlayerState.rotation = ZERO;//Vec3(gf_PI * 0.5f, 0.0f, 0.0f);
+			pPlayerState.velocity = ZERO;
+
+			CPlayerInput& pPlayerInput = latest->playerInputs[i];
+			pPlayerInput.mouseDelta = ZERO;
+			pPlayerInput.playerActions = EInputFlag::None;
+		}
 
 		latest->tickNum = 0;
 
