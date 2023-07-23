@@ -8,6 +8,7 @@
 #include "Rollback/GameStateManager.h"
 
 #include "NetworkServer.h"
+#include "NetworkClient.h"
 
 class CPlayerComponent;
 
@@ -72,4 +73,6 @@ protected:
 	CGameStateManager m_gameStateManager = CGameStateManager();
 
 	CNetworkServer* m_pCNetworkServer = new CNetworkServer();
+
+	CNetworkClient* m_pCNetworkClient = new CNetworkClient();
 };

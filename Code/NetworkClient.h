@@ -24,7 +24,7 @@ public:
 private:
     volatile bool m_bStop; // Member variable to signal thread to break out of work loop
 
+    
 
-
-    SOCKET m_ListenSocket;
+    SOCKET m_Socket;
 };

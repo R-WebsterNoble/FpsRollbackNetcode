@@ -1,6 +1,6 @@
 #include "NetworkServer.h"
 
-#include<winsock2.h>
+#include <winsock2.h>
 #include <ws2tcpip.h>
 #include <CrySystem/ISystem.h>
 
@@ -74,6 +74,15 @@ void CNetworkServer::ThreadEntry()
 			// exit(EXIT_FAILURE);
 		}
 		packetCounter++;
+
+		if (sendto(m_ListenSocket, buf, BUFLEN, 0, reinterpret_cast<sockaddr*>(&si_other), slen) == SOCKET_ERROR)
+		{
+			const auto e = WSAGetLastError();
+			CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
+			return;
+			// exit(EXIT_FAILURE);
+		}
+
 		//print details of the client/peer and the data received
 		// CryLog("NetworkServer: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
 		CryLog("NetworkServer: Packet #%i Data:  %s", packetCounter, buf);
