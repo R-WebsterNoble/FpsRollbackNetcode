@@ -25,6 +25,7 @@ private:
     volatile bool m_bStop; // Member variable to signal thread to break out of work loop
 
     
-
     SOCKET m_Socket;
+
+    char m_playerNumber = 0;
 };

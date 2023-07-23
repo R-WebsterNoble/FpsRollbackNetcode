@@ -30,7 +30,6 @@ void CNetworkClient::ThreadEntry()
 	}
 	CryLog("RollbackNetClient: Initialised.");
 
-
 	//Prepare the serverAddress structure
 	serverAddress.sin_family = AF_INET;
 	serverAddress.sin_port = htons(PORT);
@@ -50,7 +49,7 @@ void CNetworkClient::ThreadEntry()
 	const char c[] = { 'c', '\0' };
 
 
-	if (sendto(m_Socket, buf, BUFLEN, 0, reinterpret_cast<sockaddr*>(&serverAddress), sizeof serverAddress) == SOCKET_ERROR)
+	if (sendto(m_Socket, c, sizeof(c), 0, reinterpret_cast<sockaddr*>(&serverAddress), sizeof serverAddress) == SOCKET_ERROR)
 	{
 		const auto e = WSAGetLastError();
 		CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
@@ -77,7 +76,14 @@ void CNetworkClient::ThreadEntry()
 			return;
 			// exit(EXIT_FAILURE);
 		}
+
 		packetCounter++;
+
+		if(buf[0] == 'p')
+		{
+			m_playerNumber = buf[1];
+		}
+
 		//print details of the client/peer and the data received
 		// CryLog("NetworkClient: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
 		CryLog("NetworkClient: Packet #%i Data:  %s", packetCounter, buf);
