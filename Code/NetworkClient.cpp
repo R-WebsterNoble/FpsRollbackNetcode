@@ -6,12 +6,11 @@
 
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 
-#define BUFLEN 512	//Max length of buffer
+// #define BUFLEN 512	//Max length of buffer
 #define PORT 20100	//The port on which to listen for incoming data
 
 void CNetworkClient::ThreadEntry()
 {	
-	sockaddr_in serverAddress;
 	sockaddr_in si_other;
 	int slen, recv_len;
 	char buf[BUFLEN];
@@ -30,11 +29,11 @@ void CNetworkClient::ThreadEntry()
 	}
 	CryLog("RollbackNetClient: Initialised.");
 
-	//Prepare the serverAddress structure
-	serverAddress.sin_family = AF_INET;
-	serverAddress.sin_port = htons(PORT);
+	//Prepare the m_serverAddress structure
+	m_serverAddress.sin_family = AF_INET;
+	m_serverAddress.sin_port = htons(PORT);
 
-	InetPton(AF_INET, "127.0.0.1", &serverAddress.sin_addr.S_un.S_addr);
+	InetPton(AF_INET, "127.0.0.1", &m_serverAddress.sin_addr.S_un.S_addr);
 
 	m_Socket = socket(AF_INET, SOCK_DGRAM, 0);
 	//Create a socket
@@ -49,7 +48,7 @@ void CNetworkClient::ThreadEntry()
 	const char c[] = { 'c', '\0' };
 
 
-	if (sendto(m_Socket, c, sizeof(c), 0, reinterpret_cast<sockaddr*>(&serverAddress), sizeof serverAddress) == SOCKET_ERROR)
+	if (sendto(m_Socket, c, sizeof(c), 0, reinterpret_cast<sockaddr*>(&m_serverAddress), sizeof m_serverAddress) == SOCKET_ERROR)
 	{
 		const auto e = WSAGetLastError();
 		CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
@@ -109,4 +108,23 @@ void CNetworkClient::SignalStopWork()
 	shutdown(m_Socket, SD_BOTH);
 
 	CryLog("NetworkClient: Stopped");
+}
+
+void CNetworkClient::SendTick(int tickNum, CPlayerInput& playerInput)
+{
+	TickBytesUnion packet;
+	packet.ticks.packetTypeCode = 't';
+	packet.ticks.playerNum = m_playerNumber;
+	packet.ticks.tickNum = tickNum;
+	packet.ticks.tickCount = 1;
+	packet.ticks.playerInputs[0] = playerInput;
+
+	size_t len = sizeof(TickBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - packet.ticks.tickCount));
+	if (sendto(m_Socket, packet.buff, len, 0, reinterpret_cast<sockaddr*>(&m_serverAddress), sizeof m_serverAddress) == SOCKET_ERROR)
+	{
+		const auto e = WSAGetLastError();
+		CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
+		return;
+		// exit(EXIT_FAILURE);
+	}
 }

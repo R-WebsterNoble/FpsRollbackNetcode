@@ -4,12 +4,12 @@
 #include "Simulation.h"
 
 
-void CGameStateManager::Update(const float frameTime, CPlayerComponent* pLocalPlayer)
+void CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerComponent* pLocalPlayer, CNetworkClient* pNetworkClient)
 {
 	const CTick* last = m_gamesStates.PeakHead();
 	CTick* next = m_gamesStates.PeakNext();
 
-	CPlayerInput& playerInput = next->playerInputs[0];
+	CPlayerInput& playerInput = next->playerInputs[playerNumber];
 
 	pLocalPlayer->GetInput(playerInput);
 
@@ -35,6 +35,8 @@ void CGameStateManager::Update(const float frameTime, CPlayerComponent* pLocalPl
 
 		for (int i = 0; i < ticksToProcess; i++)
 		{
+			pNetworkClient->SendTick(m_tickNum, playerInput);
+
 			CSimulation::Next(m_tickDuration, last->gameState, next->playerInputs, next->gameState);
 
 			next->tickNum = m_tickNum++;			
@@ -55,12 +57,12 @@ void CGameStateManager::Update(const float frameTime, CPlayerComponent* pLocalPl
 		m_inputAccumulator.mouseDelta = ZERO;
 		m_inputAccumulator.playerActions = EInputFlag::None;
 
-		next->playerInputs[0].mouseDelta = mouseDeltaReminder;
+		next->playerInputs[playerNumber].mouseDelta = mouseDeltaReminder;
 	}
 
 	CGameState gameState;
 	CSimulation::Next(m_timeRemainingAfterProcessingFixedTicks, last->gameState, next->playerInputs, gameState);
 
-	pLocalPlayer->SetState(gameState.players[0]);
+	pLocalPlayer->SetState(gameState.players[playerNumber]);
 }
 

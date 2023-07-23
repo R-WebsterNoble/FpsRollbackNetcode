@@ -16,6 +16,7 @@ constexpr int NUM_PLAYERS = 10;
 //
 // DEFINE_ENUM_FLAG_OPERATORS(EPlayerActionFlag)
 
+constexpr static int MAX_TICKS_TO_SEND = 100;
 
 struct CPlayerInput
 {
@@ -41,4 +42,20 @@ struct CTick
 	CGameState gameState;
 	CPlayerInput playerInputs[NUM_PLAYERS];
 	int tickNum;
+};
+
+struct TicksToSend
+{
+    char packetTypeCode;
+    int playerNum;
+    int tickNum;
+    int tickCount;
+    CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
+};
+
+union TickBytesUnion
+{
+    TickBytesUnion() {  }
+    char buff[sizeof(TicksToSend)];
+    TicksToSend ticks;
 };

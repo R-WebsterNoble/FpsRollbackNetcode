@@ -4,9 +4,11 @@
 #include <ws2tcpip.h>
 #include <CrySystem/ISystem.h>
 
+#include "Rollback/GameState.h"
+
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 
-#define BUFLEN 512	//Max length of buffer
+#define BUFLEN 1216	//Max length of buffer
 #define PORT 20100	//The port on which to listen for incoming data
 
 static constexpr int PLAYER_COUNT = 2;
@@ -15,7 +17,8 @@ void CNetworkServer::ThreadEntry()
 {
 	sockaddr_in server, si_other;
 	int slen, recv_len;
-	char buf[BUFLEN];
+	TickBytesUnion t;
+	char* buf = t.buff;
 	WSADATA wsa;
 
 	sockaddr_in clientSockets[PLAYER_COUNT];
@@ -107,6 +110,10 @@ void CNetworkServer::ThreadEntry()
 					}
 				}
 			}
+		}
+		else if(buf[0] == 't')
+		{
+			CryLog("NetworkServer: Got a tick %i from %i", t.ticks.tickNum, t.ticks.playerNum);
 		}
 
 		packetCounter++;

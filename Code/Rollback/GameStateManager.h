@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GameState.h"
+#include "NetworkClient.h"
 #include "Components/Player.h"
 
 class CGameStateManager
@@ -36,7 +37,7 @@ public:
 		m_inputAccumulator.playerActions = EInputFlag::None;
 	}
 	
-	void Update(const float frameTime, CPlayerComponent* pLocalPlayer);
+	void Update(char playerNumber, const float frameTime, CPlayerComponent* pLocalPlayer, CNetworkClient* pNetworkClient);
 	
 
 private:

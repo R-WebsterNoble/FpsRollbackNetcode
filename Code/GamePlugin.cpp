@@ -57,7 +57,7 @@ void CGamePlugin::MainUpdate(float frameTime)
 	CPlayerComponent* playerComponent = m_pPlayerEntity->GetComponent<CPlayerComponent>();
 
 	if (playerComponent->IsAlive() && m_pCNetworkClient->GameStarted())
-		m_gameStateManager.Update(frameTime, playerComponent);
+		m_gameStateManager.Update(m_pCNetworkClient->PlayerNumber(), frameTime, playerComponent, m_pCNetworkClient);
 }
 
 void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam)
