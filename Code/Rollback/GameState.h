@@ -3,7 +3,9 @@
 #include "InputFlag.h"
 #include "StdAfx.h"
 
-constexpr int NUM_PLAYERS = 10;
+constexpr int NUM_PLAYERS = 2;
+
+constexpr static int MAX_TICKS_TO_SEND = 127;
 
 // enum EPlayerActionFlag : uint32
 // {
@@ -16,7 +18,6 @@ constexpr int NUM_PLAYERS = 10;
 //
 // DEFINE_ENUM_FLAG_OPERATORS(EPlayerActionFlag)
 
-constexpr static int MAX_TICKS_TO_SEND = 100;
 
 struct CPlayerInput
 {
@@ -44,18 +45,82 @@ struct CTick
 	int tickNum;
 };
 
-struct TicksToSend
+struct ClientToServerUpdate
 {
     char packetTypeCode;
-    int playerNum;
+	char playerNum;
+	char tickCount;
     int tickNum;
-    int tickCount;
+	int oldestTickNum;
     CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
 };
 
-union TickBytesUnion
+struct ServerToClientUpdate
 {
-    TickBytesUnion() {  }
-    char buff[sizeof(TicksToSend)];
-    TicksToSend ticks;
+	char packetTypeCode;
+	int firstTickNum;
+	int count;
+	int newOldestTickNum;
+	CPlayerInput playerInputs[NUM_PLAYERS] [MAX_TICKS_TO_SEND];
+};
+
+union ClientToServerUpdateBytesUnion
+{
+	ClientToServerUpdateBytesUnion() {  }
+	char buff[sizeof(ClientToServerUpdate)];
+	ClientToServerUpdate ticks;
+};
+
+union ServerToClientUpdateBytesUnion
+{
+	ServerToClientUpdateBytesUnion() {  }
+    char buff[sizeof(ServerToClientUpdate)];
+	ServerToClientUpdate ticks;
+};
+
+
+template <typename T> class RingBuffer
+{
+	static constexpr int buffer_capacity = 64000;
+	T m_buffer[MAX_TICKS_TO_SEND];
+	int m_bufferHead = 0;
+
+public:
+
+	T* GetAt(int index)
+	{
+		return &m_buffer[index % buffer_capacity];
+	}
+
+	T& Insert(T* elemets, int count)
+	{
+		for (int i = 0; i < count; ++i)
+		{
+			Rotate();
+			m_buffer[m_bufferHead] = elemets[i];			
+		}
+	}
+
+	T* PeakHead()
+	{
+		return &m_buffer[m_bufferHead];
+	}
+
+	T* PeakNext()
+	{
+		int next = m_bufferHead + 1;
+
+		if (next == buffer_capacity)
+			next -= buffer_capacity;
+
+		return &m_buffer[next];
+	}
+
+	void Rotate()
+	{
+		m_bufferHead++;
+
+		if (m_bufferHead == buffer_capacity)
+			m_bufferHead = 0;
+	}
 };

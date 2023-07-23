@@ -13,6 +13,8 @@ void CGameStateManager::Update(char playerNumber, const float frameTime, CPlayer
 
 	pLocalPlayer->GetInput(playerInput);
 
+	playerInput.mouseDelta.x = (float)m_tickNum;
+
 	m_timeRemainingAfterProcessingFixedTicks += frameTime;
 	m_inputAccumulator.mouseDelta += playerInput.mouseDelta;
 	playerInput.mouseDelta = m_inputAccumulator.mouseDelta;
@@ -35,6 +37,7 @@ void CGameStateManager::Update(char playerNumber, const float frameTime, CPlayer
 
 		for (int i = 0; i < ticksToProcess; i++)
 		{
+			playerInput.mouseDelta.x = (float)m_tickNum;
 			pNetworkClient->SendTick(m_tickNum, playerInput);
 
 			CSimulation::Next(m_tickDuration, last->gameState, next->playerInputs, next->gameState);

@@ -13,7 +13,7 @@ void CNetworkClient::ThreadEntry()
 {	
 	sockaddr_in si_other;
 	int slen, recv_len;
-	char buf[BUFLEN];
+	char buf[sizeof(ServerToClientUpdate)];
 	WSADATA wsa;
 
 	slen = sizeof(si_other);
@@ -86,6 +86,15 @@ void CNetworkClient::ThreadEntry()
 		{
 			m_gameStarted = true;
 		}
+		else if (buf[0] == 'r')
+		{
+			const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
+			m_oldestTickNum = serverUpdate->ticks.newOldestTickNum;
+
+			m_playerLatestTicks[m_playerNumber] = serverUpdate->ticks.firstTickNum;
+
+			CryLog("NetworkClient: serverUpdate firstTickNum %i, newOldestTickNum %i", serverUpdate->ticks.firstTickNum, serverUpdate->ticks.newOldestTickNum);
+		}
 
 		//print details of the client/peer and the data received
 		// CryLog("NetworkClient: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
@@ -112,14 +121,31 @@ void CNetworkClient::SignalStopWork()
 
 void CNetworkClient::SendTick(int tickNum, CPlayerInput& playerInput)
 {
-	TickBytesUnion packet;
+	auto input = m_playerInputsToSend.GetAt(tickNum);
+	input->mouseDelta = playerInput.mouseDelta;
+	input->playerActions = playerInput.playerActions;
+	m_playerInputsToSend.Rotate();
+
+	int latestLocalPlayerTick = LatestLocalPlayerTickAcknowledgedByServer();
+
+	if (latestLocalPlayerTick == 0)
+		latestLocalPlayerTick = -1;
+
+	int ticksToSend = tickNum - latestLocalPlayerTick;
+
+	ClientToServerUpdateBytesUnion packet;
 	packet.ticks.packetTypeCode = 't';
 	packet.ticks.playerNum = m_playerNumber;
 	packet.ticks.tickNum = tickNum;
-	packet.ticks.tickCount = 1;
-	packet.ticks.playerInputs[0] = playerInput;
+	packet.ticks.tickCount = ticksToSend;
+	packet.ticks.oldestTickNum = m_oldestTickNum;
 
-	size_t len = sizeof(TickBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - packet.ticks.tickCount));
+	for (int i = 0; i < ticksToSend; ++i)
+	{
+		packet.ticks.playerInputs[i] = *m_playerInputsToSend.GetAt(latestLocalPlayerTick + 1 + i);
+	}
+
+	size_t len = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - ticksToSend));
 	if (sendto(m_Socket, packet.buff, len, 0, reinterpret_cast<sockaddr*>(&m_serverAddress), sizeof m_serverAddress) == SOCKET_ERROR)
 	{
 		const auto e = WSAGetLastError();
@@ -127,4 +153,5 @@ void CNetworkClient::SendTick(int tickNum, CPlayerInput& playerInput)
 		return;
 		// exit(EXIT_FAILURE);
 	}
+	
 }

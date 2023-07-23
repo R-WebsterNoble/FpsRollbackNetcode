@@ -44,36 +44,6 @@ public:
 	
 
 private:
-
-	struct CGameStateRingBuffer
-	{
-		static constexpr int buffer_capacity = 64000;
-		CTick m_buffer[buffer_capacity]; //28416000 bytes = 28.42 megabytes
-		int m_bufferHead = 0;
-
-		CTick* PeakHead()
-		{
-			return &m_buffer[m_bufferHead];
-		}
-
-		CTick* PeakNext()
-		{
-			int next = m_bufferHead + 1;
-
-			if (next == buffer_capacity)
-				next -= buffer_capacity;
-
-			return &m_buffer[next];
-		}
-
-		void Rotate()
-		{
-			m_bufferHead++;
-
-			if (m_bufferHead == buffer_capacity)
-				m_bufferHead -= buffer_capacity;
-		}
-	};
 	
 
 	float m_tickDuration;
@@ -85,5 +55,5 @@ private:
 
 	CPlayerInput m_inputAccumulator;
 
-	CGameStateRingBuffer m_gamesStates;
+	RingBuffer<CTick> m_gamesStates;
 };
