@@ -47,7 +47,7 @@ private:
 
     char m_playerNumber = 0;
     bool m_gameStarted = false;
-    int m_serverUpdateNumber = 0;
+    int m_serverUpdateNumber;
     int m_serverAckedTick = -1;
 
     sockaddr_in m_serverAddress;

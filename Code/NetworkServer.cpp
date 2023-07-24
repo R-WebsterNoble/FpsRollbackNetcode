@@ -92,14 +92,13 @@ void CNetworkServer::ThreadEntry()
 				// exit(EXIT_FAILURE);
 			}
 			clientSockets[clientConnectionCounter] = si_other;
-			m_latestTickNumber[clientConnectionCounter] = -1;
 
 			clientConnectionCounter++;
-//if (clientConnectionCounter == NUM_PLAYERS)
+			if (clientConnectionCounter == NUM_PLAYERS)
 			{
 				// send start game signal to clients
-//for (auto& clientSocket : clientSockets)
-auto clientSocket = clientSockets[0];
+				for (auto& clientSocket : clientSockets)
+
 				{
 					const char c[] = {'s', '\0'};
 					if (sendto(m_ListenSocket, c, sizeof(c), 0, reinterpret_cast<sockaddr*>(&clientSocket), slen) ==
@@ -116,36 +115,63 @@ auto clientSocket = clientSockets[0];
 		else if (recvBuffer[0] == 't')
 		{
 			const char playerNum = clientToServerUpdate.ticks.playerNum;
-			const int updateLastTickNum = clientToServerUpdate.ticks.lastTickNum;
-			const int serverLatestTickRecieved = m_latestTickNumber[playerNum];
+			const int updateLastTickNum = clientToServerUpdate.ticks.tickNum;
 
-			if (updateLastTickNum > serverLatestTickRecieved)
+			const int serverLatestTickReceived = m_latestTickNumber[playerNum];
+
+			if (updateLastTickNum > serverLatestTickReceived)
 			{
 				const char updateTickCount = clientToServerUpdate.ticks.tickCount;
 
-				const int ticksToAdd = updateLastTickNum - serverLatestTickRecieved;
+				const int ticksToAdd = updateLastTickNum - serverLatestTickReceived;
 
 				const int skip = updateTickCount - ticksToAdd;
 
 				for (int i = 0; i < ticksToAdd; ++i)
 				{
-					const int tickToUpdate = serverLatestTickRecieved + i + 1;
-					*m_playerInputsBuffer.GetAt(tickToUpdate)[playerNum] = clientToServerUpdate.ticks.playerInputs[skip + i];
+					const int tickToUpdate = serverLatestTickReceived + i + 1;
+					(*m_clientInputsBuffer.GetAt(tickToUpdate))[playerNum] = clientToServerUpdate.ticks.playerInputs[skip + i];
 				}
 
 				m_latestTickNumber[playerNum] = updateLastTickNum;
 			}
+			
 
-					
-			int playerLatestAckedUpdate = m_playerLatestAckedUpdate[playerNum] += 1;
+			const int ackedServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber;
+			RingBuffer<int[2]>* playerUpdatesTickNumbersBuffer = &m_clientUpdatesTickNumbersBuffers[playerNum];
+			int* ackedClientTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(ackedServerUpdateNumber);
 
+			int thisUpdateNumber = m_clientUpdateNumber[playerNum] += 1;
+
+			int* thisUpdateTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(thisUpdateNumber);
 
 			serverToClientUpdate.ticks.packetTypeCode = 'r';
 			serverToClientUpdate.ticks.ackClientTickNum = updateLastTickNum;
-			serverToClientUpdate.ticks.updateNumber = playerLatestAckedUpdate;
+			serverToClientUpdate.ticks.updateNumber = thisUpdateNumber;
+			int nInputs = 0;
+			for (int i = 0, p = 0; i < NUM_PLAYERS; ++i)
+			{
+				if (i == playerNum)
+					continue;
+
+				int firstTickToSend = ackedClientTickNumbers[p]+1;
+				int lastTickToSend = m_latestTickNumber[i];
+				int count = lastTickToSend - firstTickToSend;
+
+				serverToClientUpdate.ticks.playerInputsTickNums[p] = firstTickToSend;
+				serverToClientUpdate.ticks.playerInputsCounts[p] = count;
+
+				for (int k = 0; k < count; ++k)
+				{
+					serverToClientUpdate.ticks.playerInputs[nInputs] = (*m_clientInputsBuffer.GetAt(firstTickToSend + k))[i];
+					nInputs++;
+				}
+				thisUpdateTickNumbers[p] = lastTickToSend;
+				p++;
+			}
 
 
-			const size_t len = sizeof(ServerToClientUpdate) - sizeof(serverToClientUpdate.ticks.playerInputs);
+			const size_t len = sizeof(ServerToClientUpdate) - (sizeof(serverToClientUpdate.ticks.playerInputs) - sizeof(CPlayerInput) * nInputs);
 			if (sendto(m_ListenSocket, serverToClientUpdate.buff, len, 0, reinterpret_cast<sockaddr*>(&si_other),
 				slen) == SOCKET_ERROR)
 			{
@@ -167,7 +193,7 @@ auto clientSocket = clientSockets[0];
 		// 		for (; j < ticksToSendForPlayer; ++j)
 		// 		{
 		//
-		// 			const CPlayerInput* tickPlayerInputs = *m_playerInputsBuffer.GetAt(latestAckedTickForOtherPlayer + j);
+		// 			const CPlayerInput* tickPlayerInputs = *m_clientInputsBuffer.GetAt(latestAckedTickForOtherPlayer + j);
 		// 			
 		// 			serverToClientUpdate.ticks.playerInputs[tickCount++] = tickPlayerInputs[p];
 		// 		}
@@ -194,13 +220,13 @@ auto clientSocket = clientSockets[0];
 		// 		}
 		//
 		// 		serverToClientUpdate.ticks.packetTypeCode = 'r';
-		// 		serverToClientUpdate.ticks.lastTickNum = m_latestTickNumber;
+		// 		serverToClientUpdate.ticks.tickNum = m_latestTickNumber;
 		// 		serverToClientUpdate.ticks.newOldestTickNum = minTickNum;
 		// 		serverToClientUpdate.ticks.count = ticksToSend;
 		//
 		// 		for (int i = 0; i < ticksToSend; ++i)
 		// 		{
-		// 			const CPlayerInput* tickPlayerInputs = *m_playerInputsBuffer.GetAt(playerOldestTickNum + i);
+		// 			const CPlayerInput* tickPlayerInputs = *m_clientInputsBuffer.GetAt(playerOldestTickNum + i);
 		// 			for (int pn = 0; pn < NUM_PLAYERS; ++pn)
 		// 			{
 		// 				serverToClientUpdate.ticks.playerInputs[pn][i] = tickPlayerInputs[pn];
@@ -217,7 +243,7 @@ auto clientSocket = clientSockets[0];
 		// 			// exit(EXIT_FAILURE);
 		// 		}
 		// 	}
-		// 	CryLog("NetworkServer: Got a tick %i from %i count %i", clientToServerUpdate.ticks.lastTickNum, playerNum,
+		// 	CryLog("NetworkServer: Got a tick %i from %i count %i", clientToServerUpdate.ticks.tickNum, playerNum,
 		// 	       clientToServerUpdate.ticks.tickCount);
 		}
 

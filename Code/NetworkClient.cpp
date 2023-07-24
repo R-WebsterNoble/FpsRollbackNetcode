@@ -91,9 +91,9 @@ void CNetworkClient::ThreadEntry()
 			const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
 			m_serverUpdateNumber = serverUpdate->ticks.updateNumber;
 			m_serverAckedTick = serverUpdate->ticks.ackClientTickNum;
-			// m_playerLatestTicks[m_playerNumber] = serverUpdate->ticks.lastTickNum;
+			// m_playerLatestTicks[m_playerNumber] = serverUpdate->ticks.tickNum;
 
-			// CryLog("NetworkClient: serverUpdate lastTickNum %i, m_serverUpdateNumber %i", serverUpdate->ticks.lastTickNum, m_serverUpdateNumber);
+			// CryLog("NetworkClient: serverUpdate tickNum %i, m_serverUpdateNumber %i", serverUpdate->ticks.tickNum, m_serverUpdateNumber);
 		}
 
 		//print details of the client/peer and the data received
@@ -126,12 +126,12 @@ void CNetworkClient::SendTick(int tickNum, CPlayerInput& playerInput)
 	input->playerActions = playerInput.playerActions;
 	m_playerInputsToSend.Rotate();
 
-	const int ticksToSend = static_cast<char>(tickNum - m_serverAckedTick);
+	const char ticksToSend = static_cast<char>(tickNum - m_serverAckedTick);
 
 	ClientToServerUpdateBytesUnion packet;
 	packet.ticks.packetTypeCode = 't';
 	packet.ticks.playerNum = m_playerNumber;
-	packet.ticks.lastTickNum = tickNum;
+	packet.ticks.tickNum = tickNum;
 	packet.ticks.tickCount = ticksToSend;
 	packet.ticks.ackServerUpdateNumber = m_serverUpdateNumber;
 

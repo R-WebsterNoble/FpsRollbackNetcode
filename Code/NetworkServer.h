@@ -13,6 +13,16 @@ public:
     CNetworkServer()
         : m_bStop(false)
     {
+	    for (int i = 0; i < NUM_PLAYERS; ++i)
+	    {
+            m_latestTickNumber[i] = -1;
+            m_clientUpdateNumber[i] = -1;
+            int* clientUpdateTickNumber = (*m_clientUpdatesTickNumbersBuffers[i].GetAt(0));
+            for (int j = 0; j < NUM_PLAYERS - 1; ++j)
+            {
+                clientUpdateTickNumber[j] = -1;
+            }
+	    }
     }
 
     // Once the thread is up and running it will enter this method
@@ -30,7 +40,7 @@ private:
     SOCKET m_ListenSocket;
 
     int m_latestTickNumber[NUM_PLAYERS];
-    int m_playerLatestAckedUpdate[NUM_PLAYERS];
-    int m_playerLatestAckedUpdatesTickNumbers[NUM_PLAYERS][NUM_PLAYERS];
-    RingBuffer<CPlayerInput[NUM_PLAYERS]> m_playerInputsBuffer;
+    int m_clientUpdateNumber[NUM_PLAYERS];
+    RingBuffer<int[NUM_PLAYERS-1]> m_clientUpdatesTickNumbersBuffers[NUM_PLAYERS];
+    RingBuffer<CPlayerInput[NUM_PLAYERS]> m_clientInputsBuffer;
 };

@@ -15,7 +15,7 @@ if (m_tickNum > 10)
 
 	pLocalPlayer->GetInput(playerInput);
 
-playerInput.mouseDelta.x = (float)m_tickNum;
+playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 
 	m_timeRemainingAfterProcessingFixedTicks += frameTime;
 	m_inputAccumulator.mouseDelta += playerInput.mouseDelta;
@@ -39,7 +39,7 @@ playerInput.mouseDelta.x = (float)m_tickNum;
 
 		for (int i = 0; i < ticksToProcess; i++)
 		{
-playerInput.mouseDelta.x = (float)m_tickNum;
+playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 			pNetworkClient->SendTick(m_tickNum, playerInput);
 
 			CSimulation::Next(m_tickDuration, last->gameState, next->playerInputs, next->gameState);

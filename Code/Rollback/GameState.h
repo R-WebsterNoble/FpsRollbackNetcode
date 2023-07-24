@@ -3,7 +3,7 @@
 #include "InputFlag.h"
 #include "StdAfx.h"
 
-constexpr int NUM_PLAYERS = 2;
+constexpr int NUM_PLAYERS = 3;
 
 constexpr static int MAX_TICKS_TO_SEND = 127;
 
@@ -50,7 +50,7 @@ struct ClientToServerUpdate
     char packetTypeCode;
 	char playerNum;
 	char tickCount;
-    int lastTickNum;
+    int tickNum;
 	int ackServerUpdateNumber;
     CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
 };
