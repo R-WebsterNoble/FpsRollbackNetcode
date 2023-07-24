@@ -50,18 +50,19 @@ struct ClientToServerUpdate
     char packetTypeCode;
 	char playerNum;
 	char tickCount;
-    int tickNum;
-	int oldestTickNum;
+    int lastTickNum;
+	int ackServerUpdateNumber;
     CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
 };
 
 struct ServerToClientUpdate
 {
 	char packetTypeCode;
-	int firstTickNum;
-	int count;
-	int newOldestTickNum;
-	CPlayerInput playerInputs[NUM_PLAYERS] [MAX_TICKS_TO_SEND];
+	int updateNumber;
+	int ackClientTickNum;
+	int playerInputsCounts[NUM_PLAYERS - 1];
+	int playerInputsTickNums[NUM_PLAYERS - 1];
+	CPlayerInput playerInputs[MAX_TICKS_TO_SEND * NUM_PLAYERS - 1];
 };
 
 union ClientToServerUpdateBytesUnion

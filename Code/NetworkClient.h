@@ -32,10 +32,10 @@ public:
         return m_playerNumber;
     }
 
-    int LatestLocalPlayerTickAcknowledgedByServer()
-    {
-        return m_playerLatestTicks[m_playerNumber];
-    }
+    // int LatestLocalPlayerTickAcknowledgedByServer()
+    // {
+    //     return m_playerLatestTicks[m_playerNumber];
+    // }
 
     void SendTick(int tickNum, CPlayerInput& playerInput);
 
@@ -47,11 +47,12 @@ private:
 
     char m_playerNumber = 0;
     bool m_gameStarted = false;
-    int m_oldestTickNum = 0;
+    int m_serverUpdateNumber = 0;
+    int m_serverAckedTick = -1;
 
     sockaddr_in m_serverAddress;
 
-    RingBuffer<CPlayerInput> m_playerInputsRecieved;
+    RingBuffer<CPlayerInput[NUM_PLAYERS]> m_playerInputsReceived;
     RingBuffer<CPlayerInput> m_playerInputsToSend;
-    std::atomic<int> m_playerLatestTicks[NUM_PLAYERS];
+    // std::atomic<int> m_playerLatestTicks[NUM_PLAYERS];
 };

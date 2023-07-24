@@ -89,11 +89,11 @@ void CNetworkClient::ThreadEntry()
 		else if (buf[0] == 'r')
 		{
 			const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
-			m_oldestTickNum = serverUpdate->ticks.newOldestTickNum;
+			m_serverUpdateNumber = serverUpdate->ticks.updateNumber;
+			m_serverAckedTick = serverUpdate->ticks.ackClientTickNum;
+			// m_playerLatestTicks[m_playerNumber] = serverUpdate->ticks.lastTickNum;
 
-			m_playerLatestTicks[m_playerNumber] = serverUpdate->ticks.firstTickNum;
-
-			CryLog("NetworkClient: serverUpdate firstTickNum %i, newOldestTickNum %i", serverUpdate->ticks.firstTickNum, serverUpdate->ticks.newOldestTickNum);
+			// CryLog("NetworkClient: serverUpdate lastTickNum %i, m_serverUpdateNumber %i", serverUpdate->ticks.lastTickNum, m_serverUpdateNumber);
 		}
 
 		//print details of the client/peer and the data received
@@ -121,28 +121,23 @@ void CNetworkClient::SignalStopWork()
 
 void CNetworkClient::SendTick(int tickNum, CPlayerInput& playerInput)
 {
-	auto input = m_playerInputsToSend.GetAt(tickNum);
+	const auto input = m_playerInputsToSend.GetAt(tickNum);
 	input->mouseDelta = playerInput.mouseDelta;
 	input->playerActions = playerInput.playerActions;
 	m_playerInputsToSend.Rotate();
 
-	int latestLocalPlayerTick = LatestLocalPlayerTickAcknowledgedByServer();
-
-	if (latestLocalPlayerTick == 0)
-		latestLocalPlayerTick = -1;
-
-	int ticksToSend = tickNum - latestLocalPlayerTick;
+	const int ticksToSend = static_cast<char>(tickNum - m_serverAckedTick);
 
 	ClientToServerUpdateBytesUnion packet;
 	packet.ticks.packetTypeCode = 't';
 	packet.ticks.playerNum = m_playerNumber;
-	packet.ticks.tickNum = tickNum;
+	packet.ticks.lastTickNum = tickNum;
 	packet.ticks.tickCount = ticksToSend;
-	packet.ticks.oldestTickNum = m_oldestTickNum;
+	packet.ticks.ackServerUpdateNumber = m_serverUpdateNumber;
 
 	for (int i = 0; i < ticksToSend; ++i)
 	{
-		packet.ticks.playerInputs[i] = *m_playerInputsToSend.GetAt(latestLocalPlayerTick + 1 + i);
+		packet.ticks.playerInputs[i] = *m_playerInputsToSend.GetAt(m_serverAckedTick + 1 + i);
 	}
 
 	size_t len = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - ticksToSend));

@@ -29,7 +29,8 @@ private:
     
     SOCKET m_ListenSocket;
 
-    int m_latestTickNumber;
-    int m_playerLatestTicks[NUM_PLAYERS];
+    int m_latestTickNumber[NUM_PLAYERS];
+    int m_playerLatestAckedUpdate[NUM_PLAYERS];
+    int m_playerLatestAckedUpdatesTickNumbers[NUM_PLAYERS][NUM_PLAYERS];
     RingBuffer<CPlayerInput[NUM_PLAYERS]> m_playerInputsBuffer;
 };
