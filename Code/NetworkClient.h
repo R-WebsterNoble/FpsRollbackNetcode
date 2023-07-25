@@ -22,12 +22,12 @@ public:
     // Signal the thread to stop working
     void SignalStopWork();
 
-    bool GameStarted()
+    LARGE_INTEGER StartTime() const
     {
-	    return m_gameStarted;
+        return m_gameStartTime;
     }
 
-    bool PlayerNumber()
+    bool PlayerNumber() const
     {
         return m_playerNumber;
     }
@@ -46,7 +46,7 @@ private:
     SOCKET m_Socket;
 
     char m_playerNumber = 0;
-    bool m_gameStarted = false;
+    LARGE_INTEGER m_gameStartTime;
     int m_serverUpdateNumber;
     int m_serverAckedTick = -1;
 

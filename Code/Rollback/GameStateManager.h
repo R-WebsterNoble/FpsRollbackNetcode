@@ -43,8 +43,7 @@ public:
 	void Update(char playerNumber, const float frameTime, CPlayerComponent* pLocalPlayer, CNetworkClient* pNetworkClient);
 	
 
-private:
-	
+private:	
 
 	float m_tickDuration;
 	float m_maxRollbackTime;

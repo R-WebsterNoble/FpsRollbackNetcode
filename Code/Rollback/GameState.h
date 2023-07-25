@@ -3,7 +3,7 @@
 #include "InputFlag.h"
 #include "StdAfx.h"
 
-constexpr int NUM_PLAYERS = 3;
+constexpr int NUM_PLAYERS = 2;
 
 constexpr static int MAX_TICKS_TO_SEND = 127;
 
@@ -45,6 +45,19 @@ struct CTick
 	int tickNum;
 };
 
+struct Start
+{
+    char packetTypeCode = 's';
+	LARGE_INTEGER gameStartTimestamp;	
+};
+
+union StartBytesUnion
+{
+	StartBytesUnion() {  }
+	char buff[sizeof(struct Start)];
+	struct Start start;
+};
+
 struct ClientToServerUpdate
 {
     char packetTypeCode;
@@ -55,6 +68,13 @@ struct ClientToServerUpdate
     CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
 };
 
+union ClientToServerUpdateBytesUnion
+{
+	ClientToServerUpdateBytesUnion() {  }
+	char buff[sizeof(ClientToServerUpdate)];
+	ClientToServerUpdate ticks;
+};
+
 struct ServerToClientUpdate
 {
 	char packetTypeCode;
@@ -63,13 +83,6 @@ struct ServerToClientUpdate
 	int playerInputsCounts[NUM_PLAYERS - 1];
 	int playerInputsTickNums[NUM_PLAYERS - 1];
 	CPlayerInput playerInputs[MAX_TICKS_TO_SEND * NUM_PLAYERS - 1];
-};
-
-union ClientToServerUpdateBytesUnion
-{
-	ClientToServerUpdateBytesUnion() {  }
-	char buff[sizeof(ClientToServerUpdate)];
-	ClientToServerUpdate ticks;
 };
 
 union ServerToClientUpdateBytesUnion

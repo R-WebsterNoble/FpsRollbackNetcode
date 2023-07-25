@@ -6,8 +6,14 @@
 
 void CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerComponent* pLocalPlayer, CNetworkClient* pNetworkClient)
 {
-if (m_tickNum > 10)
+if (m_tickNum > 10)	return;
+
+if (frameTime > 1.0f)
+{
+	CryLog("CGameStateManager.Update: skipped slow frame! t = %f, ", frameTime);
 	return;
+}
+
 	const CTick* last = m_gamesStates.PeakHead();
 	CTick* next = m_gamesStates.PeakNext();
 
@@ -27,6 +33,9 @@ playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 	const float fTicksToProcess = floor(m_timeRemainingAfterProcessingFixedTicks / m_tickDuration);
 	const int ticksToProcess = static_cast<int>(fTicksToProcess);
 
+	// if(ticksToProcess == 0)
+	// 	CryLog("CGameStateManager.Update: No NewTicks: Tick %i, t %d, ", m_tickNum, frameTime);
+
 	if (ticksToProcess >= 1)
 	{
 		const float ticksRemaining = remainderf(m_timeRemainingAfterProcessingFixedTicks, fTicksToProcess);
@@ -40,7 +49,11 @@ playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 		for (int i = 0; i < ticksToProcess; i++)
 		{
 playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
-			pNetworkClient->SendTick(m_tickNum, playerInput);
+
+			// CryLog("CGameStateManager.Update: SendTick Tick %i, t %d, ", m_tickNum, frameTime);
+			//if(m_tickNum % 10 == 0)
+				CryLog("CGameStateManager.Update: SendTick Tick %i, t %f, ", m_tickNum, frameTime);
+			//pNetworkClient->SendTick(m_tickNum, playerInput);
 
 			CSimulation::Next(m_tickDuration, last->gameState, next->playerInputs, next->gameState);
 

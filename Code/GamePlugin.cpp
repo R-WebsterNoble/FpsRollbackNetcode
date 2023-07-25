@@ -46,18 +46,50 @@ void CGamePlugin::MainUpdate(float frameTime)
 	if (!gEnv->IsGameOrSimulation() || gEnv->IsDedicated())
 		return;	
 
-	if (!m_pPlayerEntity)
+	if (!m_pPlayerComponent)
 	{
-		m_pPlayerEntity = gEnv->pEntitySystem->GetEntity(LOCAL_PLAYER_ENTITY_ID);
+		const IEntity* m_pPlayerEntity = gEnv->pEntitySystem->GetEntity(LOCAL_PLAYER_ENTITY_ID);
 
 		if (!m_pPlayerEntity)
 			return;
+
+		m_pPlayerComponent = m_pPlayerEntity->GetComponent<CPlayerComponent>();
+
+		if (!m_pPlayerComponent)
+			return;
+	}	
+
+	if (!m_pPlayerComponent->IsAlive() || m_lastUpdateTime.QuadPart == 0)
+	{
+		const LARGE_INTEGER startTime = m_pCNetworkClient->StartTime();
+		if(startTime.QuadPart > 0)
+		{
+			m_lastUpdateTime = startTime;
+		}
+
+		return;
 	}
 
-	CPlayerComponent* playerComponent = m_pPlayerEntity->GetComponent<CPlayerComponent>();
+	LARGE_INTEGER updateTime;
+	QueryPerformanceCounter(&updateTime);
 
-	if (playerComponent->IsAlive() && m_pCNetworkClient->GameStarted())
-		m_gameStateManager.Update(m_pCNetworkClient->PlayerNumber(), frameTime, playerComponent, m_pCNetworkClient);
+	if (m_lastUpdateTime.QuadPart > updateTime.QuadPart)
+		return;
+
+	//LARGE_INTEGER Frequency;
+	//QueryPerformanceFrequency(&Frequency);
+
+	constexpr long long frequency = 10000000;
+
+	float t = static_cast<float>((static_cast<double>(updateTime.QuadPart - m_lastUpdateTime.QuadPart) / static_cast<double>(frequency)));
+
+	m_lastUpdateTime = updateTime;
+
+
+	// CryLog("CGameStateManager.Update: t %f, ", t);
+
+	
+	m_gameStateManager.Update(m_pCNetworkClient->PlayerNumber(), t, m_pPlayerComponent, m_pCNetworkClient);
 }
 
 void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam)

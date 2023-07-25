@@ -96,12 +96,17 @@ void CNetworkServer::ThreadEntry()
 			clientConnectionCounter++;
 			if (clientConnectionCounter == NUM_PLAYERS)
 			{
+				StartBytesUnion start;
+				start.start.packetTypeCode = 's';
+				QueryPerformanceCounter(&start.start.gameStartTimestamp);
+				//QueryPerformanceFrequency()
+				constexpr long long frequency = 10000000;
+				start.start.gameStartTimestamp.QuadPart += (frequency * 2); // start after 2 seconds to give clients time to settle.
+
 				// send start game signal to clients
 				for (auto& clientSocket : clientSockets)
-
 				{
-					const char c[] = {'s', '\0'};
-					if (sendto(m_ListenSocket, c, sizeof(c), 0, reinterpret_cast<sockaddr*>(&clientSocket), slen) ==
+					if (sendto(m_ListenSocket, start.buff, sizeof(start.buff), 0, reinterpret_cast<sockaddr*>(&clientSocket), slen) ==
 						SOCKET_ERROR)
 					{
 						const auto e = WSAGetLastError();
@@ -138,7 +143,7 @@ void CNetworkServer::ThreadEntry()
 			
 
 			const int ackedServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber;
-			RingBuffer<int[2]>* playerUpdatesTickNumbersBuffer = &m_clientUpdatesTickNumbersBuffers[playerNum];
+			RingBuffer<int[NUM_PLAYERS-1]>* playerUpdatesTickNumbersBuffer = &m_clientUpdatesTickNumbersBuffers[playerNum];
 			int* ackedClientTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(ackedServerUpdateNumber);
 
 			int thisUpdateNumber = m_clientUpdateNumber[playerNum] += 1;

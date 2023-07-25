@@ -84,7 +84,8 @@ void CNetworkClient::ThreadEntry()
 		}
 		else if(buf[0] == 's')
 		{
-			m_gameStarted = true;
+			const StartBytesUnion* serverUpdate = reinterpret_cast<StartBytesUnion*>(&buf);
+			m_gameStartTime = serverUpdate->start.gameStartTimestamp;
 		}
 		else if (buf[0] == 'r')
 		{
