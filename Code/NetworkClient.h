@@ -52,7 +52,8 @@ private:
 
     sockaddr_in m_serverAddress;
 
-    RingBuffer<CPlayerInput[NUM_PLAYERS]> m_playerInputsReceived;
+    int m_clientUpdatesReceivedTickNumbers[NUM_PLAYERS-1];
+    RingBuffer<CPlayerInput[NUM_PLAYERS-1]> m_playerInputsReceived;
     RingBuffer<CPlayerInput> m_playerInputsToSend;
     // std::atomic<int> m_playerLatestTicks[NUM_PLAYERS];
 };

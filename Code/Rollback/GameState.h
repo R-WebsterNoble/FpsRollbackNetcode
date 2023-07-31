@@ -80,7 +80,7 @@ struct ServerToClientUpdate
 	char packetTypeCode;
 	int updateNumber;
 	int ackClientTickNum;
-	int playerInputsCounts[NUM_PLAYERS - 1];
+	int playerInputsTickCounts[NUM_PLAYERS - 1];
 	int playerInputsTickNums[NUM_PLAYERS - 1];
 	CPlayerInput playerInputs[MAX_TICKS_TO_SEND * NUM_PLAYERS - 1];
 };

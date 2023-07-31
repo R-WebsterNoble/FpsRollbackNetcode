@@ -92,6 +92,33 @@ void CNetworkClient::ThreadEntry()
 			const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
 			m_serverUpdateNumber = serverUpdate->ticks.updateNumber;
 			m_serverAckedTick = serverUpdate->ticks.ackClientTickNum;
+
+
+			for (int i = 0, p = 0, o = 0; i < NUM_PLAYERS; ++i)
+			{
+				if (i == m_playerNumber)
+					continue;
+
+				const int firstTickToUpdate = m_clientUpdatesReceivedTickNumbers[p] + 1;
+				const int playerInputsTickNum = serverUpdate->ticks.playerInputsTickNums[p];
+				const int playerInputsTickCount = serverUpdate->ticks.playerInputsTickCounts[p];
+
+				if (playerInputsTickCount < 1)
+					continue;
+
+				const int lastTickToUpdate = playerInputsTickNum + playerInputsTickCount;
+				const int count = lastTickToUpdate - firstTickToUpdate;
+
+				o += playerInputsTickNum - firstTickToUpdate;
+				for (int k = 0; k < count; ++k)
+				{
+					(*m_playerInputsReceived.GetAt(firstTickToUpdate + k))[p] = serverUpdate->ticks.playerInputs[o++];
+					
+				}
+				o += playerInputsTickCount - count;
+				p++;
+			}
+
 			// m_playerLatestTicks[m_playerNumber] = serverUpdate->ticks.tickNum;
 
 			// CryLog("NetworkClient: serverUpdate tickNum %i, m_serverUpdateNumber %i", serverUpdate->ticks.tickNum, m_serverUpdateNumber);

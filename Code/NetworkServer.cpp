@@ -164,7 +164,7 @@ void CNetworkServer::ThreadEntry()
 				int count = lastTickToSend - firstTickToSend;
 
 				serverToClientUpdate.ticks.playerInputsTickNums[p] = firstTickToSend;
-				serverToClientUpdate.ticks.playerInputsCounts[p] = count;
+				serverToClientUpdate.ticks.playerInputsTickCounts[p] = count;
 
 				for (int k = 0; k < count; ++k)
 				{
@@ -202,7 +202,7 @@ void CNetworkServer::ThreadEntry()
 		// 			
 		// 			serverToClientUpdate.ticks.playerInputs[tickCount++] = tickPlayerInputs[p];
 		// 		}
-		// 		serverToClientUpdate.ticks.playerInputsCounts[p] = j - 1;
+		// 		serverToClientUpdate.ticks.playerInputsTickCounts[p] = j - 1;
 		// 	}
 		// 	
 		//

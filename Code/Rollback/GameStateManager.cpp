@@ -52,8 +52,8 @@ playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 
 			// CryLog("CGameStateManager.Update: SendTick Tick %i, t %d, ", m_tickNum, frameTime);
 			//if(m_tickNum % 10 == 0)
-				CryLog("CGameStateManager.Update: SendTick Tick %i, t %f, ", m_tickNum, frameTime);
-			//pNetworkClient->SendTick(m_tickNum, playerInput);
+				// CryLog("CGameStateManager.Update: SendTick Tick %i, t %f, ", m_tickNum, frameTime);
+			pNetworkClient->SendTick(m_tickNum, playerInput);
 
 			CSimulation::Next(m_tickDuration, last->gameState, next->playerInputs, next->gameState);
 
