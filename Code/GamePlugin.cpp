@@ -88,8 +88,13 @@ void CGamePlugin::MainUpdate(float frameTime)
 
 	// CryLog("CGameStateManager.Update: t %f, ", t);
 
-	
-	m_gameStateManager.Update(m_pCNetworkClient->PlayerNumber(), t, m_pPlayerComponent, m_pCNetworkClient);
+	const CPlayerInput playerInput = m_pPlayerComponent->GetInput();
+	const CPlayerState playerState = m_gameStateManager.Update(m_pCNetworkClient->PlayerNumber(), t, playerInput, m_pCNetworkClient);
+
+	if (IsNull(playerState))
+		return;
+
+	m_pPlayerComponent->SetState(playerState);
 }
 
 void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam)
@@ -111,6 +116,7 @@ void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lp
 			// CNetworkServer* m_pCNetworkServer = new CNetworkServer();
 			if (gEnv->IsDedicated())
 			{
+				m_pCNetworkServer = new CNetworkServer(new CNetUdpServer());
 				if (!gEnv->pThreadManager->SpawnThread(m_pCNetworkServer, "CNetworkServerThread"))
 				{
 					// your failure handle code
@@ -120,6 +126,7 @@ void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lp
 			}
 			else
 			{
+				m_pCNetworkClient = new CNetworkClient(new CNetUdpClient());
 				if (!gEnv->pThreadManager->SpawnThread(m_pCNetworkClient, "CNetworkClientThread"))
 				{
 					// your failure handle code

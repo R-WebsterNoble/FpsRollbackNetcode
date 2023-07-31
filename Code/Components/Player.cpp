@@ -254,8 +254,9 @@ bool CPlayerComponent::NetSerialize(TSerialize ser, EEntityAspects aspect, uint8
 	return true;
 }
 
-void CPlayerComponent::GetInput(CPlayerInput& playerInput)
+CPlayerInput CPlayerComponent::GetInput()
 {
+	CPlayerInput playerInput;
 	playerInput.mouseDelta = m_mouseDeltaRotation;
 	m_mouseDeltaRotation = ZERO;
 
@@ -279,6 +280,7 @@ void CPlayerComponent::GetInput(CPlayerInput& playerInput)
 	{
 		playerAction |= EInputFlag::MoveBackward;
 	}
+	return playerInput;
 }
 
 void CPlayerComponent::SetState(const CPlayerState& playerState) const

@@ -19,6 +19,7 @@ constexpr static int MAX_TICKS_TO_SEND = 127;
 // DEFINE_ENUM_FLAG_OPERATORS(EPlayerActionFlag)
 
 
+
 struct CPlayerInput
 {
 	Vec2 mouseDelta;
@@ -32,6 +33,18 @@ struct CPlayerState
 	Vec2 rotation;
 };
 
+inline CPlayerState Null()
+{
+	CPlayerState p;
+	p.position.x = std::numeric_limits<float>::max();
+	return p;
+}
+
+inline bool IsNull(CPlayerState p)
+{
+	return p.position.x == std::numeric_limits<float>::max();
+}
+
 struct CGameState
 {
 	CPlayerState players[NUM_PLAYERS];
@@ -44,6 +57,7 @@ struct CTick
 	CPlayerInput playerInputs[NUM_PLAYERS];
 	int tickNum;
 };
+
 
 struct Start
 {

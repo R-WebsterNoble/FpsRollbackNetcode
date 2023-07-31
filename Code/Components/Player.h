@@ -112,7 +112,7 @@ public:
 
 	bool IsAlive() const {	return m_isAlive; }
 
-	void GetInput(CPlayerInput& playerInput);
+	CPlayerInput GetInput();
 	void SetState(const CPlayerState& playerState) const;
 	void UpdateRollbackCameraAndPosition(const CPlayerState& playerState) const;
 

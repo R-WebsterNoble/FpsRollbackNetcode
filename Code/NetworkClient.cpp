@@ -9,14 +9,25 @@
 // #define BUFLEN 512	//Max length of buffer
 #define PORT 20100	//The port on which to listen for incoming data
 
-void CNetworkClient::ThreadEntry()
-{	
-	sockaddr_in si_other;
-	int slen, recv_len;
-	char buf[sizeof(ServerToClientUpdate)];
-	WSADATA wsa;
+// class CNetUdpClient : public CNetUdpClientInterface
+// {
+// 	void Send(char* buff, int len) override;
+// 	void Receive(char* buff, int len) override;
+// };
 
-	slen = sizeof(si_other);
+
+CNetUdpClient::~CNetUdpClient()
+{
+	closesocket(m_Socket);
+
+	shutdown(m_Socket, SD_BOTH);
+
+	WSACleanup();
+}
+
+CNetUdpClient::CNetUdpClient()
+{
+	WSADATA wsa;
 
 	//Initialise winsock
 	CryLog("RollbackNetClient: Initialising Winsock...");
@@ -44,17 +55,46 @@ void CNetworkClient::ThreadEntry()
 	}
 	CryLog("RollbackNetServer: Server socket created.");
 
+}
 
-	const char c[] = { 'c', '\0' };
-
-
-	if (sendto(m_Socket, c, sizeof(c), 0, reinterpret_cast<sockaddr*>(&m_serverAddress), sizeof m_serverAddress) == SOCKET_ERROR)
+void CNetUdpClient::Send(const char* buff, int len)
+{
+	if (sendto(m_Socket, buff, len, 0, reinterpret_cast<sockaddr*>(&m_serverAddress), sizeof m_serverAddress) == SOCKET_ERROR)
 	{
 		const auto e = WSAGetLastError();
 		CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
 		return;
 		// exit(EXIT_FAILURE);
 	}
+}
+
+int CNetUdpClient::Receive(char* buff, int len)
+{
+	sockaddr_in si_other;
+	int recv_len;
+	int slen = sizeof(si_other);
+
+	if ((recv_len = recvfrom(m_Socket, buff, len, 0, reinterpret_cast<sockaddr*>(&si_other), &slen)) ==
+		SOCKET_ERROR)
+	{
+		auto e = WSAGetLastError();
+		CryFatalError("NetworkClient: recvfrom() failed with error code : %d", e);
+		return recv_len;
+		// exit(EXIT_FAILURE);
+	}
+	return recv_len;
+}
+
+
+
+void CNetworkClient::ThreadEntry()
+{
+	const char c[] = { 'c', '\0' };
+
+	m_networkClientUdp->Send(c, sizeof(c));
+
+
+	char buf[sizeof(ServerToClientUpdate)];
 
 
 	int packetCounter = 0;
@@ -67,14 +107,7 @@ void CNetworkClient::ThreadEntry()
 		memset(buf, '\0', BUFLEN);
 
 		//try to receive some data, this is a blocking call
-		if ((recv_len = recvfrom(m_Socket, buf, BUFLEN, 0, reinterpret_cast<sockaddr*>(&si_other), &slen)) ==
-			SOCKET_ERROR)
-		{
-			auto e = WSAGetLastError();
-			CryFatalError("NetworkClient: recvfrom() failed with error code : %d", e);
-			return;
-			// exit(EXIT_FAILURE);
-		}
+		m_networkClientUdp->Receive(buf, BUFLEN);
 
 		packetCounter++;
 
@@ -128,10 +161,6 @@ void CNetworkClient::ThreadEntry()
 		// CryLog("NetworkClient: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
 		CryLog("NetworkClient: Packet #%i Data:  %s", packetCounter, buf);
 	}
-
-	closesocket(m_Socket);
-
-	WSACleanup();
 }
 
 
@@ -142,18 +171,17 @@ void CNetworkClient::SignalStopWork()
 
 	m_bStop = true;
 
-	shutdown(m_Socket, SD_BOTH);
-
 	CryLog("NetworkClient: Stopped");
 }
 
-void CNetworkClient::SendTick(int tickNum, CPlayerInput& playerInput)
+void CNetworkClient::EnqueueTick(const int tickNum, const CPlayerInput& playerInput)
 {
-	const auto input = m_playerInputsToSend.GetAt(tickNum);
-	input->mouseDelta = playerInput.mouseDelta;
-	input->playerActions = playerInput.playerActions;
-	m_playerInputsToSend.Rotate();
+	*m_playerInputsToSend.GetAt(tickNum) = playerInput;
+	m_playerInputsToSend.Rotate();	
+}
 
+void CNetworkClient::SendTicks(const int tickNum)
+{
 	const char ticksToSend = static_cast<char>(tickNum - m_serverAckedTick);
 
 	ClientToServerUpdateBytesUnion packet;
@@ -169,12 +197,5 @@ void CNetworkClient::SendTick(int tickNum, CPlayerInput& playerInput)
 	}
 
 	size_t len = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - ticksToSend));
-	if (sendto(m_Socket, packet.buff, len, 0, reinterpret_cast<sockaddr*>(&m_serverAddress), sizeof m_serverAddress) == SOCKET_ERROR)
-	{
-		const auto e = WSAGetLastError();
-		CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
-		return;
-		// exit(EXIT_FAILURE);
-	}
-	
+	m_networkClientUdp->Send(packet.buff, len);	
 }

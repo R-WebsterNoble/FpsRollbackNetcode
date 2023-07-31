@@ -4,14 +4,17 @@
 #include "Simulation.h"
 
 
-void CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerComponent* pLocalPlayer, CNetworkClient* pNetworkClient)
+CPlayerState CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerInput localPayerInput,
+                                       CNetworkClient* pNetworkClient)
 {
-if (m_tickNum > 10)	return;
+if (m_tickNum > 10)
+	return Null();
+
 
 if (frameTime > 1.0f)
 {
 	CryLog("CGameStateManager.Update: skipped slow frame! t = %f, ", frameTime);
-	return;
+	return Null();
 }
 
 	const CTick* last = m_gamesStates.PeakHead();
@@ -19,7 +22,7 @@ if (frameTime > 1.0f)
 
 	CPlayerInput& playerInput = next->playerInputs[playerNumber];
 
-	pLocalPlayer->GetInput(playerInput);
+	playerInput = localPayerInput;
 
 playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 
@@ -50,10 +53,10 @@ playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 		{
 playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 
-			// CryLog("CGameStateManager.Update: SendTick Tick %i, t %d, ", m_tickNum, frameTime);
+			// CryLog("CGameStateManager.Update: SendTicks Tick %i, t %d, ", m_tickNum, frameTime);
 			//if(m_tickNum % 10 == 0)
-				// CryLog("CGameStateManager.Update: SendTick Tick %i, t %f, ", m_tickNum, frameTime);
-			pNetworkClient->SendTick(m_tickNum, playerInput);
+				// CryLog("CGameStateManager.Update: SendTicks Tick %i, t %f, ", m_tickNum, frameTime);
+			pNetworkClient->EnqueueTick(m_tickNum, playerInput);
 
 			CSimulation::Next(m_tickDuration, last->gameState, next->playerInputs, next->gameState);
 
@@ -78,9 +81,11 @@ playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 		next->playerInputs[playerNumber].mouseDelta = mouseDeltaReminder;
 	}
 
+	pNetworkClient->SendTicks(m_tickNum);
+
 	CGameState gameState;
 	CSimulation::Next(m_timeRemainingAfterProcessingFixedTicks, last->gameState, next->playerInputs, gameState);
 
-	pLocalPlayer->SetState(gameState.players[playerNumber]);
+	return gameState.players[playerNumber];
 }
 

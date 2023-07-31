@@ -7,11 +7,33 @@
 
 #include "Rollback/GameState.h"
 
+class CNetUdpServerInterface
+{
+protected:
+    ~CNetUdpServerInterface() = default;
+
+public:
+    virtual void Send(const char* buff, int len, sockaddr_in* to) = 0;
+    virtual int Receive(char* buff, int len, sockaddr_in* si_other) = 0;
+};
+
+class CNetUdpServer : public CNetUdpServerInterface
+{
+public:
+    virtual ~CNetUdpServer();
+    CNetUdpServer();
+    void Send(const char* buff, int len, sockaddr_in* to) override;
+    int Receive(char* buff, int len, sockaddr_in* si_other) override;
+private:
+    SOCKET m_ListenSocket;
+};
+
 class CNetworkServer : public IThread
 {
 public:
-    CNetworkServer()
-        : m_bStop(false)
+
+    CNetworkServer(CNetUdpServerInterface* networkServerUdp)
+        : m_networkServerUdp(networkServerUdp)
     {
 	    for (int i = 0; i < NUM_PLAYERS; ++i)
 	    {
@@ -34,10 +56,8 @@ public:
 
 
 private:
-    volatile bool m_bStop; // Member variable to signal thread to break out of work loop
-
-    
-    SOCKET m_ListenSocket;
+    volatile bool m_bStop = false; // Member variable to signal thread to break out of work loop
+    CNetUdpServerInterface *m_networkServerUdp;    
 
     int m_latestTickNumber[NUM_PLAYERS];
     int m_clientUpdateNumber[NUM_PLAYERS];

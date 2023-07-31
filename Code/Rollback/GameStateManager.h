@@ -4,7 +4,13 @@
 #include "NetworkClient.h"
 #include "Components/Player.h"
 
-class CGameStateManager
+class CGameStateManagerInterface
+{
+	virtual CPlayerState Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
+		CNetworkClient* pNetworkClient) = 0;
+};
+
+class CGameStateManager : CGameStateManagerInterface
 {
 public:
 
@@ -39,8 +45,9 @@ public:
 		m_inputAccumulator.mouseDelta = ZERO;
 		m_inputAccumulator.playerActions = EInputFlag::None;
 	}
-	
-	void Update(char playerNumber, const float frameTime, CPlayerComponent* pLocalPlayer, CNetworkClient* pNetworkClient);
+
+	CPlayerState Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
+	                    CNetworkClient* pNetworkClient) override;
 	
 
 private:	
