@@ -2,8 +2,9 @@
 
 #include "NetworkServer.h"
 
+#include "ThreadRunner.h"
+
 #include <WinSock2.h>
-#include <CryThreading/IThreadManager.h>
 
 #include "Rollback/GameState.h"
 
@@ -28,7 +29,7 @@ private:
     SOCKET m_ListenSocket;
 };
 
-class CNetworkServer : public IThread
+class CNetworkServer : public CThreadRunnableInterface
 {
 public:
 
@@ -47,17 +48,14 @@ public:
 	    }
     }
 
-    // Once the thread is up and running it will enter this method
-    void ThreadEntry() override;
-
-    // Signal the thread to stop working
-    void SignalStopWork();
-
-
+    void DoWork() override;
+    void Start() override;
 
 private:
-    volatile bool m_bStop = false; // Member variable to signal thread to break out of work loop
-    CNetUdpServerInterface *m_networkServerUdp;    
+    CNetUdpServerInterface *m_networkServerUdp;
+
+
+    char m_clientConnectionCounter = 0;
 
     int m_latestTickNumber[NUM_PLAYERS];
     int m_clientUpdateNumber[NUM_PLAYERS];

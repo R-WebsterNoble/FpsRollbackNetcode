@@ -58,7 +58,7 @@ CNetUdpServer::CNetUdpServer()
 
 void CNetUdpServer::Send(const char* buff, int len, sockaddr_in* to)
 {
-	int slen = sizeof(sockaddr_in);
+	const int slen = sizeof(sockaddr_in);
 	if (sendto(m_ListenSocket, buff, len, 0, reinterpret_cast<sockaddr*>(to), slen) == SOCKET_ERROR)
 	{
 		const auto e = WSAGetLastError();
@@ -84,202 +84,117 @@ int CNetUdpServer::Receive(char* buff, int len, sockaddr_in* si_other)
 	return recv_len;
 }
 
-void CNetworkServer::ThreadEntry()
+void CNetworkServer::DoWork()
 {
 	sockaddr_in si_other;
-	
+
 	ClientToServerUpdateBytesUnion clientToServerUpdate;
 	char* recvBuffer = clientToServerUpdate.buff;
-	ServerToClientUpdateBytesUnion serverToClientUpdate;	
 
-	sockaddr_in clientSockets[NUM_PLAYERS];
-	
 
-	char clientConnectionCounter = 0;
+	CryLog("NetworkServer: Waiting for data...");
 
-	int packetCounter = 0;
-	//keep listening for data
-	while (!m_bStop)
+	//clear the buffer by filling null, it might have previously received data
+	memset(recvBuffer, '\0', BUFLEN);
+	m_networkServerUdp->Receive(recvBuffer, BUFLEN, &si_other);
+
+	//try to receive some data, this is a blocking call
+
+
+	if (recvBuffer[0] == 'c')
 	{
-		CryLog("NetworkServer: Waiting for data...");
+		sockaddr_in clientSockets[NUM_PLAYERS];
+		const char c[] = { 'p', m_clientConnectionCounter, '\0' };
 
-		//clear the buffer by filling null, it might have previously received data
-		memset(recvBuffer, '\0', BUFLEN);
-		m_networkServerUdp->Receive(recvBuffer, BUFLEN, &si_other);
+		m_networkServerUdp->Send(c, sizeof(c), &si_other);
+		clientSockets[m_clientConnectionCounter] = si_other;
 
-		//try to receive some data, this is a blocking call
-
-
-		if (recvBuffer[0] == 'c')
+		m_clientConnectionCounter++;
+		if (m_clientConnectionCounter == NUM_PLAYERS)
 		{
-			const char c[] = {'p', clientConnectionCounter, '\0'};
+			StartBytesUnion start;
+			start.start.packetTypeCode = 's';
+			QueryPerformanceCounter(&start.start.gameStartTimestamp);
+			//QueryPerformanceFrequency()
+			constexpr long long frequency = 10000000;
+			start.start.gameStartTimestamp.QuadPart += (frequency * 2); // start after 2 seconds to give clients time to settle.
 
-			m_networkServerUdp->Send(c, sizeof(c), &si_other);
-			clientSockets[clientConnectionCounter] = si_other;
-
-			clientConnectionCounter++;
-			if (clientConnectionCounter == NUM_PLAYERS)
+			// send start game signal to clients
+			for (auto& clientSocket : clientSockets)
 			{
-				StartBytesUnion start;
-				start.start.packetTypeCode = 's';
-				QueryPerformanceCounter(&start.start.gameStartTimestamp);
-				//QueryPerformanceFrequency()
-				constexpr long long frequency = 10000000;
-				start.start.gameStartTimestamp.QuadPart += (frequency * 2); // start after 2 seconds to give clients time to settle.
-
-				// send start game signal to clients
-				for (auto& clientSocket : clientSockets)
-				{
-					m_networkServerUdp->Send(start.buff, sizeof(start.buff), &clientSocket);
-				}
+				m_networkServerUdp->Send(start.buff, sizeof(start.buff), &clientSocket);
 			}
 		}
-		else if (recvBuffer[0] == 't')
-		{
-			const char playerNum = clientToServerUpdate.ticks.playerNum;
-			const int updateLastTickNum = clientToServerUpdate.ticks.tickNum;
-
-			const int serverLatestTickReceived = m_latestTickNumber[playerNum];
-
-			if (updateLastTickNum > serverLatestTickReceived)
-			{
-				const char updateTickCount = clientToServerUpdate.ticks.tickCount;
-
-				const int ticksToAdd = updateLastTickNum - serverLatestTickReceived;
-
-				const int skip = updateTickCount - ticksToAdd;
-
-				for (int i = 0; i < ticksToAdd; ++i)
-				{
-					const int tickToUpdate = serverLatestTickReceived + i + 1;
-					(*m_clientInputsBuffer.GetAt(tickToUpdate))[playerNum] = clientToServerUpdate.ticks.playerInputs[skip + i];
-				}
-
-				m_latestTickNumber[playerNum] = updateLastTickNum;
-			}
-			
-
-			const int ackedServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber;
-			RingBuffer<int[NUM_PLAYERS-1]>* playerUpdatesTickNumbersBuffer = &m_clientUpdatesTickNumbersBuffers[playerNum];
-			int* ackedClientTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(ackedServerUpdateNumber);
-
-			int thisUpdateNumber = m_clientUpdateNumber[playerNum] += 1;
-
-			int* thisUpdateTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(thisUpdateNumber);
-
-			serverToClientUpdate.ticks.packetTypeCode = 'r';
-			serverToClientUpdate.ticks.ackClientTickNum = updateLastTickNum;
-			serverToClientUpdate.ticks.updateNumber = thisUpdateNumber;
-			int nInputs = 0;
-			for (int i = 0, p = 0; i < NUM_PLAYERS; ++i)
-			{
-				if (i == playerNum)
-					continue;
-
-				int firstTickToSend = ackedClientTickNumbers[p]+1;
-				int lastTickToSend = m_latestTickNumber[i];
-				int count = lastTickToSend - firstTickToSend;
-
-				serverToClientUpdate.ticks.playerInputsTickNums[p] = firstTickToSend;
-				serverToClientUpdate.ticks.playerInputsTickCounts[p] = count;
-
-				for (int k = 0; k < count; ++k)
-				{
-					serverToClientUpdate.ticks.playerInputs[nInputs] = (*m_clientInputsBuffer.GetAt(firstTickToSend + k))[i];
-					nInputs++;
-				}
-				thisUpdateTickNumbers[p] = lastTickToSend;
-				p++;
-			}
-
-
-			const size_t len = sizeof(ServerToClientUpdate) - (sizeof(serverToClientUpdate.ticks.playerInputs) - sizeof(CPlayerInput) * nInputs);
-
-			m_networkServerUdp->Send(serverToClientUpdate.buff, len, &si_other);
-		
-		// 	int tickCount = 0;
-		// 	for (int p = 0; p < NUM_PLAYERS; ++p)
-		// 	{
-		// 		if(p == playerNum)
-		// 			continue;
-		//
-		// 		int latestAckedTickForOtherPlayer = m_playerLatestAckedUpdatesTickNumbers[playerNum][p];
-		// 		int latestTickForOtherPlayer = m_latestTickNumber[p];
-		// 		char ticksToSendForPlayer = (char)(latestTickForOtherPlayer - latestAckedTickForOtherPlayer);
-		// 		int j = 1;
-		// 		for (; j < ticksToSendForPlayer; ++j)
-		// 		{
-		//
-		// 			const CPlayerInput* tickPlayerInputs = *m_clientInputsBuffer.GetAt(latestAckedTickForOtherPlayer + j);
-		// 			
-		// 			serverToClientUpdate.ticks.playerInputs[tickCount++] = tickPlayerInputs[p];
-		// 		}
-		// 		serverToClientUpdate.ticks.playerInputsTickCounts[p] = j - 1;
-		// 	}
-		// 	
-		//
-		//
-		//
-		// 	if (playerTickNum > m_latestTickNumber)
-		// 		m_latestTickNumber = playerTickNum;
-		//
-		// 	m_playerLatestTicks[playerNum] = playerTickNum;
-		//
-		// 	const int ticksToSend = m_latestTickNumber - playerOldestTickNum;
-		//
-		// 	if (ticksToSend > 0)
-		// 	{
-		// 		int minTickNum = MAXINT32;
-		// 		for (const int playersLatestTick : m_playerLatestTicks)
-		// 		{
-		// 			if (playersLatestTick < minTickNum)
-		// 				minTickNum = playerLatestTick;
-		// 		}
-		//
-		// 		serverToClientUpdate.ticks.packetTypeCode = 'r';
-		// 		serverToClientUpdate.ticks.tickNum = m_latestTickNumber;
-		// 		serverToClientUpdate.ticks.newOldestTickNum = minTickNum;
-		// 		serverToClientUpdate.ticks.count = ticksToSend;
-		//
-		// 		for (int i = 0; i < ticksToSend; ++i)
-		// 		{
-		// 			const CPlayerInput* tickPlayerInputs = *m_clientInputsBuffer.GetAt(playerOldestTickNum + i);
-		// 			for (int pn = 0; pn < NUM_PLAYERS; ++pn)
-		// 			{
-		// 				serverToClientUpdate.ticks.playerInputs[pn][i] = tickPlayerInputs[pn];
-		// 			}
-		// 		}
-		//
-		// 		const size_t len = sizeof(ServerToClientUpdate) - (sizeof(CPlayerInput[NUM_PLAYERS]) * (MAX_TICKS_TO_SEND - ticksToSend));
-		// 		if (sendto(m_ListenSocket, serverToClientUpdate.buff, len, 0, reinterpret_cast<sockaddr*>(&si_other),
-		// 			slen) == SOCKET_ERROR)
-		// 		{
-		// 			const auto e = WSAGetLastError();
-		// 			CryFatalError("RollbackNetClient: sendto() failed with error code : %d", e);
-		// 			return;
-		// 			// exit(EXIT_FAILURE);
-		// 		}
-		// 	}
-		// 	CryLog("NetworkServer: Got a tick %i from %i count %i", clientToServerUpdate.ticks.tickNum, playerNum,
-		// 	       clientToServerUpdate.ticks.tickCount);
-		}
-
-		packetCounter++;
-
-		//print details of the client/peer and the data received
-		// CryLog("NetworkServer: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
-		CryLog("NetworkServer: Packet #%i Data:  %s", packetCounter, recvBuffer);
 	}
+	else if (recvBuffer[0] == 't')
+	{
+		ServerToClientUpdateBytesUnion serverToClientUpdate;
+		const char playerNum = clientToServerUpdate.ticks.playerNum;
+		const int updateLastTickNum = clientToServerUpdate.ticks.tickNum;
+
+		const int serverLatestTickReceived = m_latestTickNumber[playerNum];
+
+		if (updateLastTickNum > serverLatestTickReceived)
+		{
+			const char updateTickCount = clientToServerUpdate.ticks.tickCount;
+
+			const int ticksToAdd = updateLastTickNum - serverLatestTickReceived;
+
+			const int skip = updateTickCount - ticksToAdd;
+
+			for (int i = 0; i < ticksToAdd; ++i)
+			{
+				const int tickToUpdate = serverLatestTickReceived + i + 1;
+				(*m_clientInputsBuffer.GetAt(tickToUpdate))[playerNum] = clientToServerUpdate.ticks.playerInputs[skip + i];
+			}
+
+			m_latestTickNumber[playerNum] = updateLastTickNum;
+		}
+
+
+		const int ackedServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber;
+		RingBuffer<int[NUM_PLAYERS - 1]>* playerUpdatesTickNumbersBuffer = &m_clientUpdatesTickNumbersBuffers[playerNum];
+		const int* ackedClientTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(ackedServerUpdateNumber);
+
+		const int thisUpdateNumber = m_clientUpdateNumber[playerNum] += 1;
+
+		int* thisUpdateTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(thisUpdateNumber);
+
+		serverToClientUpdate.ticks.packetTypeCode = 'r';
+		serverToClientUpdate.ticks.ackClientTickNum = updateLastTickNum;
+		serverToClientUpdate.ticks.updateNumber = thisUpdateNumber;
+		int nInputs = 0;
+		for (int i = 0, p = 0; i < NUM_PLAYERS; ++i)
+		{
+			if (i == playerNum)
+				continue;
+
+			const int firstTickToSend = ackedClientTickNumbers[p] + 1;
+			const int lastTickToSend = m_latestTickNumber[i];
+			const int count = lastTickToSend - firstTickToSend;
+
+			serverToClientUpdate.ticks.playerInputsTickNums[p] = firstTickToSend;
+			serverToClientUpdate.ticks.playerInputsTickCounts[p] = count;
+
+			for (int k = 0; k < count; ++k)
+			{
+				serverToClientUpdate.ticks.playerInputs[nInputs] = (*m_clientInputsBuffer.GetAt(firstTickToSend + k))[i];
+				nInputs++;
+			}
+			thisUpdateTickNumbers[p] = lastTickToSend;
+			p++;
+		}
+
+
+		const size_t len = sizeof(ServerToClientUpdate) - (sizeof(serverToClientUpdate.ticks.playerInputs) - sizeof(CPlayerInput) * nInputs);
+
+		m_networkServerUdp->Send(serverToClientUpdate.buff, len, &si_other);
+
+	}
+	CryLog("NetworkServer: Packet Data:  %s", recvBuffer);
 
 }
 
-
-void CNetworkServer::SignalStopWork()
+void CNetworkServer::Start()
 {
-	if (m_bStop)
-		return;
-
-	m_bStop = true;	
-
-	CryLog("NetworkServer: Stopped");
 }

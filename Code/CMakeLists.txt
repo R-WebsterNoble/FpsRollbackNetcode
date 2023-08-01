@@ -20,6 +20,8 @@ sources_platform(ALL)
 add_sources("Code_uber.cpp"
     PROJECTS Game
     SOURCE_GROUP "Root"
+		"ThreadRunner.h"
+		"ThreadRunner.cpp"
 		"NetworkServer.h"
 		"NetworkServer.cpp"
 		"NetworkClient.h"

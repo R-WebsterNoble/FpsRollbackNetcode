@@ -2,8 +2,9 @@
 
 #include "NetworkClient.h"
 
+#include "ThreadRunner.h"
+
 #include <WinSock2.h>
-#include <CryThreading/IThreadManager.h>
 
 #include "Rollback/GameState.h"
 
@@ -35,7 +36,7 @@ class CNetworkClientInterface
 	virtual void SendTicks(int tickNum) = 0;
 };
 
-class CNetworkClient : public CNetworkClientInterface, public IThread
+class CNetworkClient : public CNetworkClientInterface, public CThreadRunnableInterface
 {
 public:
 	CNetworkClient(CNetUdpClientInterface* networkClientUdp)
@@ -45,13 +46,7 @@ public:
         {
             m_clientUpdatesReceivedTickNumbers[i] = -1;
         }
-    }
-
-    // Once the thread is up and running it will enter this method
-    void ThreadEntry() override;
-
-    // Signal the thread to stop working
-    void SignalStopWork();
+    }   
 
     LARGE_INTEGER StartTime() const
     {
@@ -68,11 +63,13 @@ public:
     //     return m_playerLatestTicks[m_playerNumber];
     // }
 
+	void Start() override;
+    void DoWork() override;
+
     void EnqueueTick(int tickNum, const CPlayerInput& playerInput) override;
     void SendTicks(int tickNum) override;
 
 private:
-    volatile bool m_bStop = false; // Member variable to signal thread to break out of work loop
 
     CNetUdpClientInterface *m_networkClientUdp;
     

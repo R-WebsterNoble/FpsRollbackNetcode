@@ -86,92 +86,72 @@ int CNetUdpClient::Receive(char* buff, int len)
 }
 
 
-
-void CNetworkClient::ThreadEntry()
+void CNetworkClient::Start()
 {
 	const char c[] = { 'c', '\0' };
 
 	m_networkClientUdp->Send(c, sizeof(c));
-
-
-	char buf[sizeof(ServerToClientUpdate)];
-
-
-	int packetCounter = 0;
-	//keep listening for data
-	while (!m_bStop)
-	{
-		CryLog("NetworkClient: Waiting for data...");
-
-		//clear the buffer by filling null, it might have previously received data
-		memset(buf, '\0', BUFLEN);
-
-		//try to receive some data, this is a blocking call
-		m_networkClientUdp->Receive(buf, BUFLEN);
-
-		packetCounter++;
-
-		if(buf[0] == 'p')
-		{
-			m_playerNumber = buf[1];
-		}
-		else if(buf[0] == 's')
-		{
-			const StartBytesUnion* serverUpdate = reinterpret_cast<StartBytesUnion*>(&buf);
-			m_gameStartTime = serverUpdate->start.gameStartTimestamp;
-		}
-		else if (buf[0] == 'r')
-		{
-			const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
-			m_serverUpdateNumber = serverUpdate->ticks.updateNumber;
-			m_serverAckedTick = serverUpdate->ticks.ackClientTickNum;
-
-
-			for (int i = 0, p = 0, o = 0; i < NUM_PLAYERS; ++i)
-			{
-				if (i == m_playerNumber)
-					continue;
-
-				const int lastTickUpdated = m_clientUpdatesReceivedTickNumbers[p];
-				const int playerInputsTickNum = serverUpdate->ticks.playerInputsTickNums[p];
-				const int playerInputsTickCount = serverUpdate->ticks.playerInputsTickCounts[p];
-
-				if (playerInputsTickCount < 1)
-					continue;
-
-				const int latestTickToUpdate = playerInputsTickNum + (playerInputsTickCount-1);
-				const int count = latestTickToUpdate - lastTickUpdated;
-
-				const int offset = playerInputsTickNum - (lastTickUpdated+1); // skip inputs that we have already received
-				o += offset;
-				for (int k = 1; k <= count; ++k)
-				{
-					(*m_playerInputsReceived.GetAt(lastTickUpdated + k))[p] = serverUpdate->ticks.playerInputs[o++];
-					
-				}
-				p++;
-			}
-
-			// m_playerLatestTicks[m_playerNumber] = serverUpdate->ticks.tickNum;
-
-			// CryLog("NetworkClient: serverUpdate tickNum %i, m_serverUpdateNumber %i", serverUpdate->ticks.tickNum, m_serverUpdateNumber);
-		}
-
-		//print details of the client/peer and the data received
-		// CryLog("NetworkClient: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
-		CryLog("NetworkClient: Packet #%i Data:  %s", packetCounter, buf);
-	}
 }
 
+void CNetworkClient::DoWork()
+{	
+	char buf[sizeof(ServerToClientUpdate)];	
 
-void CNetworkClient::SignalStopWork()
-{
-	if (m_bStop)
-		return;
+	CryLog("NetworkClient: Waiting for data...");
 
-	m_bStop = true;
+	//clear the buffer by filling null, it might have previously received data
+	memset(buf, '\0', BUFLEN);
 
-	CryLog("NetworkClient: Stopped");
+	//try to receive some data, this is a blocking call
+	m_networkClientUdp->Receive(buf, BUFLEN);	
+
+	if(buf[0] == 'p')
+	{
+		m_playerNumber = buf[1];
+	}
+	else if(buf[0] == 's')
+	{
+		const StartBytesUnion* serverUpdate = reinterpret_cast<StartBytesUnion*>(&buf);
+		m_gameStartTime = serverUpdate->start.gameStartTimestamp;
+	}
+	else if (buf[0] == 'r')
+	{
+		const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
+		m_serverUpdateNumber = serverUpdate->ticks.updateNumber;
+		m_serverAckedTick = serverUpdate->ticks.ackClientTickNum;
+
+
+		for (int i = 0, p = 0, o = 0; i < NUM_PLAYERS; ++i)
+		{
+			if (i == m_playerNumber)
+				continue;
+
+			const int lastTickUpdated = m_clientUpdatesReceivedTickNumbers[p];
+			const int playerInputsTickNum = serverUpdate->ticks.playerInputsTickNums[p];
+			const int playerInputsTickCount = serverUpdate->ticks.playerInputsTickCounts[p];
+
+			if (playerInputsTickCount < 1)
+				continue;
+
+			const int latestTickToUpdate = playerInputsTickNum + (playerInputsTickCount-1);
+			const int count = latestTickToUpdate - lastTickUpdated;
+
+			const int offset = playerInputsTickNum - (lastTickUpdated+1); // skip inputs that we have already received
+			o += offset;
+			for (int k = 1; k <= count; ++k)
+			{
+				(*m_playerInputsReceived.GetAt(lastTickUpdated + k))[p] = serverUpdate->ticks.playerInputs[o++];
+				
+			}
+			p++;
+		}
+		
+	}
+
+	//print details of the client/peer and the data received
+	// CryLog("NetworkClient: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
+	CryLog("NetworkClient: Packet Data: %s", buf);
+	
 }
 
 void CNetworkClient::EnqueueTick(const int tickNum, const CPlayerInput& playerInput)
