@@ -132,23 +132,23 @@ void CNetworkClient::ThreadEntry()
 				if (i == m_playerNumber)
 					continue;
 
-				const int firstTickToUpdate = m_clientUpdatesReceivedTickNumbers[p] + 1;
+				const int lastTickUpdated = m_clientUpdatesReceivedTickNumbers[p];
 				const int playerInputsTickNum = serverUpdate->ticks.playerInputsTickNums[p];
 				const int playerInputsTickCount = serverUpdate->ticks.playerInputsTickCounts[p];
 
 				if (playerInputsTickCount < 1)
 					continue;
 
-				const int lastTickToUpdate = playerInputsTickNum + playerInputsTickCount;
-				const int count = lastTickToUpdate - firstTickToUpdate;
+				const int latestTickToUpdate = playerInputsTickNum + (playerInputsTickCount-1);
+				const int count = latestTickToUpdate - lastTickUpdated;
 
-				o += playerInputsTickNum - firstTickToUpdate;
-				for (int k = 0; k < count; ++k)
+				const int offset = playerInputsTickNum - (lastTickUpdated+1); // skip inputs that we have already received
+				o += offset;
+				for (int k = 1; k <= count; ++k)
 				{
-					(*m_playerInputsReceived.GetAt(firstTickToUpdate + k))[p] = serverUpdate->ticks.playerInputs[o++];
+					(*m_playerInputsReceived.GetAt(lastTickUpdated + k))[p] = serverUpdate->ticks.playerInputs[o++];
 					
 				}
-				o += playerInputsTickCount - count;
 				p++;
 			}
 

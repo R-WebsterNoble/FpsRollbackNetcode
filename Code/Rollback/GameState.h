@@ -7,6 +7,8 @@ constexpr int NUM_PLAYERS = 2;
 
 constexpr static int MAX_TICKS_TO_SEND = 127;
 
+constexpr static int MAX_GAME_DURATION_TICKS = 10;
+
 // enum EPlayerActionFlag : uint32
 // {
 // 	None = 0,

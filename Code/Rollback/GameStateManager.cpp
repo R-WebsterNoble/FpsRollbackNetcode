@@ -7,8 +7,8 @@
 CPlayerState CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerInput localPayerInput,
                                        CNetworkClient* pNetworkClient)
 {
-if (m_tickNum > 10)
-	return Null();
+	if (m_tickNum > MAX_GAME_DURATION_TICKS)
+		return Null();
 
 
 if (frameTime > 1.0f)
@@ -81,7 +81,8 @@ playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
 		next->playerInputs[playerNumber].mouseDelta = mouseDeltaReminder;
 	}
 
-	pNetworkClient->SendTicks(m_tickNum);
+	if(ticksToProcess > 0)
+		pNetworkClient->SendTicks(m_tickNum-1);
 
 	CGameState gameState;
 	CSimulation::Next(m_timeRemainingAfterProcessingFixedTicks, last->gameState, next->playerInputs, gameState);

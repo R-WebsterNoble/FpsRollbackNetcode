@@ -41,6 +41,10 @@ public:
 	CNetworkClient(CNetUdpClientInterface* networkClientUdp)
         : m_networkClientUdp(networkClientUdp)
     {
+        for (int i = 0; i < NUM_PLAYERS; ++i)
+        {
+            m_clientUpdatesReceivedTickNumbers[i] = -1;
+        }
     }
 
     // Once the thread is up and running it will enter this method
@@ -74,7 +78,7 @@ private:
     
     char m_playerNumber = 0;
     LARGE_INTEGER m_gameStartTime;
-    int m_serverUpdateNumber;
+    int m_serverUpdateNumber = -1;
     int m_serverAckedTick = -1;
 
 

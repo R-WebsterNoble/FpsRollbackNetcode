@@ -14,6 +14,188 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
+#define test
+
+#ifdef test
+
+
+class CTestNetUdp : public CNetUdpClientInterface, public CNetUdpServerInterface
+{
+private:
+	std::function<void(const char*, int)> m_clientSendCallback = nullptr;
+	std::function<int(char* buff, int len)> m_clientReceiveCallback = nullptr;
+	std::function<void(const char* buff, int len, sockaddr_in* to)> m_serverSendCallback = nullptr;
+	std::function<int(char* buff, int len, sockaddr_in* si_other)> m_serverReceiveCallback = nullptr;
+	int m_expectedNextCallback = 0;
+	int m_expectedCallbackSequenceNumber = 0;
+	int m_callbackSequenceNumber = 1;
+
+public:
+
+	void Send(const char* buff, int len) override
+	{
+		if (m_expectedNextCallback != 1 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+			CryFatalError("Test Callback called in incorrect order");
+
+		m_callbackSequenceNumber++;
+
+		m_clientSendCallback(buff, len);
+	}
+
+	int Receive(char* buff, int len) override
+	{
+		if (m_expectedNextCallback != 2 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+			CryFatalError("Test Callback called in incorrect order");
+
+		m_callbackSequenceNumber++;
+
+		return m_clientReceiveCallback(buff, len);
+	}
+
+	void Send(const char* buff, int len, sockaddr_in* to) override
+	{
+		if (m_expectedNextCallback != 3 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+			CryFatalError("Test Callback called in incorrect order");
+
+		m_callbackSequenceNumber++;
+
+		m_serverSendCallback(buff, len, to);
+	}
+
+	int Receive(char* buff, int len, sockaddr_in* si_other) override
+	{
+		if (m_expectedNextCallback != 4 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+			CryFatalError("Test Callback called in incorrect order");
+
+		m_expectedCallbackSequenceNumber++;
+
+		return m_serverReceiveCallback(buff, len, si_other);
+	}
+
+
+	void SetClientSendCallback(int n, std::function<void(const char*, int)> callback)
+	{
+		m_expectedCallbackSequenceNumber = n;
+		m_expectedNextCallback = 1;
+		m_clientSendCallback = callback;
+	}
+
+	void SetClientReceiveCallback(int n, std::function<int(char* buff, int len)> callback)
+	{
+		m_expectedCallbackSequenceNumber = n;
+		m_expectedNextCallback = 2;
+		m_clientReceiveCallback = callback;
+	}
+
+	void SetServerSendCallback(int n, std::function<void(const char* buff, int len, sockaddr_in* to)> callback)
+	{
+		m_expectedCallbackSequenceNumber = n;
+		m_expectedNextCallback = 3;
+		m_serverSendCallback = callback;
+	}
+
+	void SetServerReceiveCallback(int n, std::function<int(char* buff, int len, sockaddr_in* si_other)> callback)
+	{
+		m_expectedCallbackSequenceNumber = n;
+		m_expectedNextCallback = 4;
+		m_serverReceiveCallback = callback;
+	}
+};
+
+
+
+void Test()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+	
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameStateManager gameStateManager = CGameStateManager();
+	
+	testNetUdp.SetClientSendCallback(1, [&testNetUdp, &networkClient, &gameStateManager](const char* buff, int len) -> void
+	{
+		constexpr char c[2] = { 'c', '\0' };
+		if (len != sizeof c || memcmp(buff, c, sizeof c) != 0)
+			CryFatalError("Client connect packet not sent as expected");
+
+		testNetUdp.SetClientReceiveCallback(2, [&testNetUdp, &networkClient, &gameStateManager](const char* buff, int len) -> int
+		{
+			constexpr char p[] = { 'p', 0, '\0' };
+
+			memcpy((void*)buff, p, sizeof p);
+
+			testNetUdp.SetClientReceiveCallback(3, [&testNetUdp, &networkClient, &gameStateManager](const char* buff, int len) -> int
+			{
+				StartBytesUnion start;
+				start.start.packetTypeCode = 's';
+				start.start.gameStartTimestamp.QuadPart = 10000000;				
+			
+				memcpy((void*)buff, start.buff, sizeof(start.buff));
+
+
+				testNetUdp.SetClientSendCallback(4, [&testNetUdp, &networkClient, &gameStateManager](const char* buff, int len) -> void
+				{
+					ClientToServerUpdateBytesUnion packet;
+					packet.ticks.packetTypeCode = 't';
+					packet.ticks.playerNum = 0;
+					packet.ticks.tickNum = 0;
+					packet.ticks.tickCount = 1;
+					packet.ticks.ackServerUpdateNumber = -1;
+
+					packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
+					packet.ticks.playerInputs[0].playerActions = EInputFlag::None;					
+
+					constexpr size_t pLen = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - 1));
+
+					if (len != pLen || memcmp(buff, packet.buff, pLen) != 0)
+						CryFatalError("Client connect packet not sent as expected");
+
+
+					testNetUdp.SetClientReceiveCallback(5, [&testNetUdp, &networkClient, &gameStateManager](const char* buff, int len) -> int
+					{
+
+						ServerToClientUpdateBytesUnion packet;
+						packet.ticks.packetTypeCode = 'r';
+						packet.ticks.ackClientTickNum = 1;
+						packet.ticks.updateNumber = 0;
+						packet.ticks.playerInputsTickCounts[0] = 1;
+						packet.ticks.playerInputsTickNums[0] = 0;
+						packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
+						packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
+						
+
+						const size_t pLen = sizeof(ServerToClientUpdate) - (sizeof(packet.ticks.playerInputs) - sizeof(CPlayerInput) * 1);
+
+						memcpy((void*)buff, packet.buff, pLen);
+
+						networkClient.SignalStopWork();
+
+						return pLen;
+					});
+				});
+
+				constexpr float TICKS_PER_SECOND = 128.0f;
+
+				constexpr float t = 1.0f / TICKS_PER_SECOND;
+				CPlayerInput blah;
+				blah.mouseDelta = Vec2(1.0f, 0.0f);
+				blah.playerActions = EInputFlag::None;
+				gameStateManager.Update(0, t, blah, &networkClient);
+				
+
+				return len;
+			});
+			
+
+			return len;
+		});
+	});
+
+	networkClient.ThreadEntry();
+
+}
+
+#endif
 
 CGamePlugin::~CGamePlugin()
 {
@@ -33,6 +215,11 @@ CGamePlugin::~CGamePlugin()
 
 bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitParams& initParams)
 {
+#ifdef test
+	Test();
+	gEnv->pSystem->Quit();
+#endif
+
 	EnableUpdate(EUpdateStep::MainUpdate, true);
 
 	// Register for engine system events, in our case we need ESYSTEM_EVENT_GAME_POST_INIT to load the map
@@ -44,7 +231,7 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 void CGamePlugin::MainUpdate(float frameTime)
 {
 	if (!gEnv->IsGameOrSimulation() || gEnv->IsDedicated())
-		return;	
+		return;
 
 	if (!m_pPlayerComponent)
 	{
@@ -57,12 +244,12 @@ void CGamePlugin::MainUpdate(float frameTime)
 
 		if (!m_pPlayerComponent)
 			return;
-	}	
+	}
 
 	if (!m_pPlayerComponent->IsAlive() || m_lastUpdateTime.QuadPart == 0)
 	{
 		const LARGE_INTEGER startTime = m_pCNetworkClient->StartTime();
-		if(startTime.QuadPart > 0)
+		if (startTime.QuadPart > 0)
 		{
 			m_lastUpdateTime = startTime;
 		}
