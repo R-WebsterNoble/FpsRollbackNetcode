@@ -6,6 +6,7 @@
 
 #include <WinSock2.h>
 
+#include "lib/readerwritercircularbuffer.h"
 #include "Rollback/GameState.h"
 
 class CNetUdpClientInterface
@@ -28,6 +29,14 @@ public:
 private:
     SOCKET m_Socket;
     sockaddr_in m_serverAddress;
+};
+
+
+struct STickInput
+{
+    int tickNum;
+    int playerNum;
+    CPlayerInput inputs;
 };
 
 class CNetworkClientInterface
@@ -58,6 +67,11 @@ public:
         return m_playerNumber;
     }
 
+    bool GetInputUpdates(STickInput& update)
+	{
+        return m_newPlayerInputsQueue.try_dequeue(update);
+	}
+
     // int LatestLocalPlayerTickAcknowledgedByServer()
     // {
     //     return m_playerLatestTicks[m_playerNumber];
@@ -83,4 +97,5 @@ private:
     RingBuffer<CPlayerInput[NUM_PLAYERS-1]> m_playerInputsReceived;
     RingBuffer<CPlayerInput> m_playerInputsToSend;
     // std::atomic<int> m_playerLatestTicks[NUM_PLAYERS];
+    moodycamel::BlockingReaderWriterCircularBuffer<STickInput> m_newPlayerInputsQueue = moodycamel::BlockingReaderWriterCircularBuffer<STickInput>(64);
 };

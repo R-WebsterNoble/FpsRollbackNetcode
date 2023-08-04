@@ -1,6 +1,6 @@
 #include "NetworkClient.h"
 
-#include<winsock2.h>
+#include <winsock2.h>
 #include <ws2tcpip.h>
 #include <CrySystem/ISystem.h>
 
@@ -140,11 +140,22 @@ void CNetworkClient::DoWork()
 			o += offset;
 			for (int k = 1; k <= count; ++k)
 			{
-				(*m_playerInputsReceived.GetAt(lastTickUpdated + k))[p] = serverUpdate->ticks.playerInputs[o++];
-				
+				const CPlayerInput playerInput = serverUpdate->ticks.playerInputs[o++];
+				const int tickNum = lastTickUpdated + k;
+
+				(*m_playerInputsReceived.GetAt(tickNum))[p] = playerInput;
+
+				STickInput tickInput = STickInput();
+				tickInput.tickNum = tickNum;
+				tickInput.playerNum = i;
+				tickInput.inputs = playerInput;
+				m_newPlayerInputsQueue.try_enqueue(tickInput);				
 			}
+
+			m_clientUpdatesReceivedTickNumbers[p] = playerInputsTickNum + latestTickToUpdate;
+
 			p++;
-		}
+		}	
 		
 	}
 

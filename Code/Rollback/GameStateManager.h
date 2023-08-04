@@ -48,6 +48,8 @@ public:
 
 	CPlayerState Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
 	                    CNetworkClient* pNetworkClient) override;
+
+	void DoRollback(CNetworkClient* pNetworkClient);
 	
 
 private:	
@@ -58,6 +60,8 @@ private:
 	int m_tickNum = 0;
 
 	float m_timeRemainingAfterProcessingFixedTicks = 0;
+
+	int m_latestPlayerTickNumbers[NUM_PLAYERS];
 
 	CPlayerInput m_inputAccumulator;
 

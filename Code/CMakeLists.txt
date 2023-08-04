@@ -56,6 +56,14 @@ add_sources("Rollback_uber.cpp"
 		"Rollback/RollbackPlayer.h"
 )
 
+add_sources("Lib_uber.cpp"
+    PROJECTS Game
+    SOURCE_GROUP "lib"
+		"lib/atomicops.h"
+        "lib/readerwritercircularbuffer.h"
+        "lib/readerwriterqueue.h"
+)
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/CVarOverrides.h")
     add_sources("NoUberFile"
         PROJECTS Game
