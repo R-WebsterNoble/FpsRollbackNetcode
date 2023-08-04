@@ -103,11 +103,13 @@ void CNetworkServer::DoWork()
 
 	if (recvBuffer[0] == 'c')
 	{
-		sockaddr_in clientSockets[NUM_PLAYERS];
 		const char c[] = { 'p', m_clientConnectionCounter, '\0' };
 
-		m_networkServerUdp->Send(c, sizeof(c), &si_other);
-		clientSockets[m_clientConnectionCounter] = si_other;
+		sockaddr_in* client = &m_clientSockets[m_clientConnectionCounter];
+
+		*client = si_other;
+
+		m_networkServerUdp->Send(c, sizeof(c), client);
 
 		m_clientConnectionCounter++;
 		if (m_clientConnectionCounter == NUM_PLAYERS)
@@ -120,7 +122,7 @@ void CNetworkServer::DoWork()
 			start.start.gameStartTimestamp.QuadPart += (frequency * 2); // start after 2 seconds to give clients time to settle.
 
 			// send start game signal to clients
-			for (auto& clientSocket : clientSockets)
+			for (auto clientSocket : m_clientSockets)
 			{
 				m_networkServerUdp->Send(start.buff, sizeof(start.buff), &clientSocket);
 			}

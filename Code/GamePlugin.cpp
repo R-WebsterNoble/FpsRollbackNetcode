@@ -14,7 +14,7 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
-#define test
+//#define test
 
 #ifdef test
 

@@ -61,4 +61,6 @@ private:
     int m_clientUpdateNumber[NUM_PLAYERS];
     RingBuffer<int[NUM_PLAYERS-1]> m_clientUpdatesTickNumbersBuffers[NUM_PLAYERS];
     RingBuffer<CPlayerInput[NUM_PLAYERS]> m_clientInputsBuffer;
+
+    sockaddr_in m_clientSockets[NUM_PLAYERS];
 };
