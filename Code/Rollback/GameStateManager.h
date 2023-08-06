@@ -6,8 +6,8 @@
 
 class CGameStateManagerInterface
 {
-	virtual CPlayerState Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
-		CNetworkClient* pNetworkClient) = 0;
+	virtual bool Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
+	                    CNetworkClient* pNetworkClient, OUT CGameState& outGameState) = 0;
 };
 
 class CGameStateManager : CGameStateManagerInterface
@@ -46,8 +46,8 @@ public:
 		m_inputAccumulator.playerActions = EInputFlag::None;
 	}
 
-	CPlayerState Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
-	                    CNetworkClient* pNetworkClient) override;
+	bool Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
+	            CNetworkClient* pNetworkClient, OUT CGameState& outGameState) override;
 
 	void DoRollback(CNetworkClient* pNetworkClient);
 	

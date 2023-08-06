@@ -97,7 +97,7 @@ void CNetworkClient::DoWork()
 {	
 	char buf[sizeof(ServerToClientUpdate)];	
 
-	CryLog("NetworkClient: Waiting for data...");
+	// CryLog("NetworkClient: Waiting for data...");
 
 	//clear the buffer by filling null, it might have previously received data
 	memset(buf, '\0', BUFLEN);
@@ -161,7 +161,7 @@ void CNetworkClient::DoWork()
 
 	//print details of the client/peer and the data received
 	// CryLog("NetworkClient: Received packet from %s:%d\n", si_other.sin_addr, ntohs(si_other.sin_port));
-	CryLog("NetworkClient: Packet Data: %s", buf);
+	//CryLog("NetworkClient: Packet Data: %s", buf);
 	
 }
 

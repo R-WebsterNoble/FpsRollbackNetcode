@@ -5,9 +5,9 @@
 
 constexpr int NUM_PLAYERS = 2;
 
-constexpr static int MAX_TICKS_TO_SEND = 127;
+constexpr static int MAX_TICKS_TO_SEND = 1280 * 10;
 
-constexpr static int MAX_GAME_DURATION_TICKS = 10;
+constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_SEND * 60 * 60;
 
 // enum EPlayerActionFlag : uint32
 // {
@@ -35,17 +35,6 @@ struct CPlayerState
 	Vec2 rotation;
 };
 
-inline CPlayerState Null()
-{
-	CPlayerState p;
-	p.position.x = std::numeric_limits<float>::max();
-	return p;
-}
-
-inline bool IsNull(CPlayerState p)
-{
-	return p.position.x == std::numeric_limits<float>::max();
-}
 
 struct CGameState
 {

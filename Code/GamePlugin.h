@@ -29,6 +29,7 @@ public:
 	// Cry::IEnginePlugin
 	virtual const char* GetCategory() const override { return "Game"; }
 	virtual bool Initialize(SSystemGlobalEnvironment& env, const SSystemInitParams& initParams) override;
+	void TryInitialiseRollback();
 	// ~Cry::IEnginePlugin
 		
 	virtual void MainUpdate(float frameTime) override;
@@ -62,17 +63,20 @@ public:
 	static CGamePlugin* GetInstance()
 	{
 		return cryinterface_cast<CGamePlugin>(CGamePlugin::s_factory.CreateClassInstance().get());
-	}
+	}	
 
 protected:
 	// Map containing player components, key is the channel id received in OnClientConnectionReceived
 	std::unordered_map<int, EntityId> m_players;
 
-	CPlayerComponent* m_pPlayerComponent;
+	CPlayerComponent* m_pLocalPlayerComponent;
 
 	LARGE_INTEGER m_lastUpdateTime;	
 
 	CGameStateManager m_gameStateManager = CGameStateManager();
 	CNetworkServer* m_pCNetworkServer;
 	CNetworkClient* m_pCNetworkClient;
+
+	CPlayerComponent* m_rollbackPlayers[NUM_PLAYERS];
+	bool m_rollbackInitialised = false;
 };

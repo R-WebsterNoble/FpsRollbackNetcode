@@ -148,10 +148,16 @@ Cry::Entity::EventFlags CPlayerComponent::GetEventMask() const
 
 void CPlayerComponent::UpdateRollbackCameraAndPosition(const CPlayerState& playerState) const
 {
-	const Quat rot = Quat(
-		CCamera::CreateOrientationYPR(Ang3(playerState.rotation.x, 0.0f, 0.0f)));
-	GetEntity()->SetPosRotScale(playerState.position, rot, Vec3(1, 1, 1));
+	IEntity* const entity = GetEntity();
+	if (!entity)
+		return;
 
+	const Quat rot = Quat(CCamera::CreateOrientationYPR(Ang3(playerState.rotation.x, 0.0f, 0.0f)));
+
+	entity->SetPosRotScale(playerState.position, rot, Vec3(1, 1, 1));
+
+	if (!m_pAnimationComponent || !m_pCameraComponent || !m_pAudioListenerComponent)
+		return;
 
 	Matrix34 localTransform = IDENTITY;
 	localTransform.SetRotation33(CCamera::CreateOrientationYPR(Vec3(0.0f, playerState.rotation.y, 0.0f)));
@@ -182,7 +188,7 @@ void CPlayerComponent::ProcessEvent(const SEntityEvent& event)
 	break;
 	case Cry::Entity::EEvent::Update:
 	{
-		if (m_is_rollback_controlled)
+		if (m_isRollbackControlled)
 			return;
 
 		// Don't update the player if we haven't spawned yet
@@ -286,6 +292,13 @@ CPlayerInput CPlayerComponent::GetInput()
 void CPlayerComponent::SetState(const CPlayerState& playerState) const
 {
 	UpdateRollbackCameraAndPosition(playerState);
+}
+
+void CPlayerComponent::SetState(IEntity* playerEntity, const CPlayerState& playerState)
+{
+	const Quat rot = Quat(CCamera::CreateOrientationYPR(Ang3(playerState.rotation.x, 0.0f, 0.0f)));
+
+	playerEntity->SetPosRotScale(playerState.position, rot, Vec3(1, 1, 1));	
 }
 
 void CPlayerComponent::UpdateMovementRequest(float frameTime)

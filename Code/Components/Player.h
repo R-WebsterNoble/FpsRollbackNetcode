@@ -114,12 +114,13 @@ public:
 
 	CPlayerInput GetInput();
 	void SetState(const CPlayerState& playerState) const;
+	static void SetState(IEntity* playerEntity, const CPlayerState& playerState);
 	void UpdateRollbackCameraAndPosition(const CPlayerState& playerState) const;
+	void SetIsRollbackControlled(bool isRollbackControlled) { m_isRollbackControlled = false; }
 
 protected:
 	void Revive(const Matrix34& transform);
 	
-	void UpdateRollbackPlayer(float frameTime);
 	void UpdateMovementRequest(float frameTime);
 	void UpdateLookDirectionRequest(float frameTime);
 	void UpdateAnimation(float frameTime);
@@ -179,5 +180,5 @@ protected:
 	Quat m_lookOrientation; //!< Should translate to head orientation in the future
 	float m_horizontalAngularVelocity;
 	MovingAverage<float, 10> m_averagedHorizontalAngularVelocity;
-	bool m_is_rollback_controlled = true;
+	bool m_isRollbackControlled = true;
 };

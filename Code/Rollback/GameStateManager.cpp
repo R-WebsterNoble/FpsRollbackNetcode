@@ -4,26 +4,29 @@
 #include "Simulation.h"
 
 
-
-CPlayerState CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerInput localPayerInput,
-                                       CNetworkClient* pNetworkClient)
+bool CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerInput localPayerInput,
+                               CNetworkClient* pNetworkClient, OUT CGameState& outGameState)
 {
 	if (m_tickNum > MAX_GAME_DURATION_TICKS)
-		return Null();
+		return false;
 
 if (frameTime > 1.0f)
 {
 	CryLog("CGameStateManager.Update: skipped slow frame! t = %f, ", frameTime);
-	return Null();
+
+	return false;
 }
 
 	const CTick* last = m_gamesStates.PeakHead();
 	CTick* next = m_gamesStates.PeakNext();
 
 	// CPlayerInput& playerInput = next->playerInputs[playerNumber];
-	
 
-//playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
+if (playerNumber == 1)
+{
+	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + (m_tickNum * 0.0001f));
+	localPayerInput.playerActions = EInputFlag::MoveForward;
+}
 
 	m_timeRemainingAfterProcessingFixedTicks += frameTime;
 	m_inputAccumulator.mouseDelta += localPayerInput.mouseDelta;
@@ -50,7 +53,11 @@ if (frameTime > 1.0f)
 
 		for (int i = 0; i < ticksToProcess; i++)
 		{
-//playerInput.mouseDelta.x = (float)(playerNumber * 100 + m_tickNum);
+if (playerNumber == 1)
+{
+	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + (m_tickNum * 0.0001f));
+	localPayerInput.playerActions = EInputFlag::MoveForward;
+}
 
 			// CryLog("CGameStateManager.Update: SendTicks Tick %i, t %d, ", m_tickNum, frameTime);
 			//if(m_tickNum % 10 == 0)
@@ -85,12 +92,10 @@ if (frameTime > 1.0f)
 		pNetworkClient->SendTicks(m_tickNum-1);
 	else	
 		next->playerInputs[playerNumber] = localPayerInput;
-	
+		
+	CSimulation::Next(m_timeRemainingAfterProcessingFixedTicks, last->gameState, next->playerInputs, outGameState);
 
-	CGameState gameState;
-	CSimulation::Next(m_timeRemainingAfterProcessingFixedTicks, last->gameState, next->playerInputs, gameState);
-
-	return gameState.players[playerNumber];
+	return true;
 }
 
 void CGameStateManager::DoRollback(CNetworkClient* pNetworkClient)

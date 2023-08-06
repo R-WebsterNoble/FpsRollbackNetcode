@@ -62,7 +62,7 @@ public:
         return m_gameStartTime;
     }
 
-    bool PlayerNumber() const
+    char LocalPlayerNumber() const
     {
         return m_playerNumber;
     }

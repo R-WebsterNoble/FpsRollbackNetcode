@@ -14,7 +14,7 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
-#define test
+//#define test
 
 #ifdef test
 
@@ -106,6 +106,8 @@ public:
 
 void Test1()
 {
+	CGameState gs;
+
 	CTestNetUdp testNetUdp = CTestNetUdp();
 	
 	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
@@ -168,7 +170,7 @@ void Test1()
 	CPlayerInput blah;
 	blah.mouseDelta = Vec2(1.0f, 0.0f);
 	blah.playerActions = EInputFlag::None;
-	gameStateManager.Update(0, t, blah, &networkClient);
+	gameStateManager.Update(0, t, blah, &networkClient, gs);
 
 
 	testNetUdp.SetClientReceiveCallback(5, [](char* buff, int len) -> int
@@ -194,6 +196,7 @@ void Test1()
 
 void Test2()
 {
+	CGameState gs;
 	CTestNetUdp testNetUdp = CTestNetUdp();
 
 	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
@@ -255,7 +258,7 @@ void Test2()
 	CPlayerInput playerInput;
 	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
 	playerInput.playerActions = EInputFlag::None;
-	gameStateManager.Update(0, t, playerInput, &networkClient);
+	gameStateManager.Update(0, t, playerInput, &networkClient, gs);
 
 
 	testNetUdp.SetClientSendCallback(5, [](const char* buff, int len) -> void
@@ -281,7 +284,7 @@ void Test2()
 	});
 	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
 	playerInput.playerActions = EInputFlag::None;
-	gameStateManager.Update(0, t, playerInput, &networkClient);
+	gameStateManager.Update(0, t, playerInput, &networkClient, gs);
 
 
 	testNetUdp.SetClientReceiveCallback(6, [](char* buff, int len) -> int
@@ -346,7 +349,178 @@ void Test2()
 	});
 	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
 	playerInput.playerActions = EInputFlag::None;
-	gameStateManager.Update(0, t, playerInput, &networkClient);
+	gameStateManager.Update(0, t, playerInput, &networkClient, gs);
+}
+
+void Test3()
+{
+	CGameState gs;
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient1 = CNetworkClient(&testNetUdp);
+	CNetworkClient networkClient2 = CNetworkClient(&testNetUdp);
+	CNetworkServer networkServer = CNetworkServer(&testNetUdp);
+
+	CGameStateManager gameStateManager = CGameStateManager();
+
+	int sn = 1;
+
+	testNetUdp.SetClientSendCallback(sn++, [](const char* buff, int len) -> void
+	{
+		constexpr char c[2] = { 'c', '\0' };
+		if (len != sizeof c || memcmp(buff, c, sizeof c) != 0)
+			CryFatalError("Client connect packet not sent as expected");
+	});
+	networkClient1.Start();
+
+
+	testNetUdp.SetServerReceiveCallback(sn++, [](char* buff, int len, sockaddr_in* si_other) -> int
+	{
+		constexpr char c[2] = { 'c', '\0' };
+		memcpy(buff, c, sizeof c);
+
+		return len;
+	});
+	networkServer.DoWork();
+
+	testNetUdp.SetClientReceiveCallback(2, [](char* buff, int len) -> int
+	{
+		constexpr char p[] = { 'p', 0, '\0' };
+		memcpy(buff, p, sizeof p);
+
+		return len;
+	});
+	networkClient1.DoWork();
+
+
+	testNetUdp.SetClientReceiveCallback(3, [](char* buff, int len) -> int
+	{
+		StartBytesUnion start;
+		start.start.packetTypeCode = 's';
+		start.start.gameStartTimestamp.QuadPart = 10000000;
+
+		memcpy(buff, start.buff, sizeof(start.buff));
+
+		return len;
+	});
+	networkClient1.DoWork();
+
+
+	testNetUdp.SetClientSendCallback(4, [](const char* buff, int len) -> void
+	{
+		ClientToServerUpdateBytesUnion packet;
+		packet.ticks.packetTypeCode = 't';
+		packet.ticks.playerNum = 0;
+		packet.ticks.tickNum = 0;
+		packet.ticks.tickCount = 1;
+		packet.ticks.ackServerUpdateNumber = -1;
+
+		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.992248058f, 0.0f);
+		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
+
+		constexpr size_t pLen = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - 1));
+
+		if (len != pLen || memcmp(buff, packet.buff, pLen) != 0)
+			CryFatalError("ClientToServerUpdateBytesUnion packet not sent as expected");
+
+	});
+	constexpr float TICKS_PER_SECOND = 128.0f;
+	constexpr float t = 1.0f / TICKS_PER_SECOND;
+	CPlayerInput playerInput;
+	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
+	playerInput.playerActions = EInputFlag::None;
+	gameStateManager.Update(0, t, playerInput, &networkClient1, gs);
+
+
+	testNetUdp.SetClientSendCallback(5, [](const char* buff, int len) -> void
+	{
+		ClientToServerUpdateBytesUnion packet;
+		packet.ticks.packetTypeCode = 't';
+		packet.ticks.playerNum = 0;
+		packet.ticks.tickNum = 1;
+		packet.ticks.tickCount = 2;
+		packet.ticks.ackServerUpdateNumber = -1;
+
+		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
+		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
+
+		packet.ticks.playerInputs[1].mouseDelta = Vec2(1.0f, 0.0f);
+		packet.ticks.playerInputs[1].playerActions = EInputFlag::None;
+
+		constexpr size_t pLen = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - 2));
+
+		// if (len != pLen || memcmp(buff, packet.buff, pLen) != 0)
+		// 	CryFatalError("ClientToServerUpdateBytesUnion packet not sent as expected");
+
+	});
+	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
+	playerInput.playerActions = EInputFlag::None;
+	gameStateManager.Update(0, t, playerInput, &networkClient1, gs);
+
+
+	testNetUdp.SetClientReceiveCallback(6, [](char* buff, int len) -> int
+	{
+		ServerToClientUpdateBytesUnion packet;
+		packet.ticks.packetTypeCode = 'r';
+		packet.ticks.ackClientTickNum = 1;
+		packet.ticks.updateNumber = 0;
+		packet.ticks.playerInputsTickCounts[0] = 1;
+		packet.ticks.playerInputsTickNums[0] = 0;
+		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
+		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
+
+		constexpr size_t pLen = sizeof(ServerToClientUpdate) - (sizeof(packet.ticks.playerInputs) - sizeof(CPlayerInput) * 1);
+		memcpy(buff, packet.buff, pLen);
+
+		return pLen;
+	});
+	networkClient1.DoWork();
+
+
+	testNetUdp.SetClientReceiveCallback(7, [](char* buff, int len) -> int
+	{
+		ServerToClientUpdateBytesUnion packet;
+		packet.ticks.packetTypeCode = 'r';
+		packet.ticks.ackClientTickNum = 1;
+		packet.ticks.updateNumber = 1;
+		packet.ticks.playerInputsTickCounts[0] = 1;
+		packet.ticks.playerInputsTickNums[0] = 0;
+		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
+		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
+
+		const size_t pLen = sizeof(ServerToClientUpdate) - (sizeof packet.ticks.playerInputs - sizeof(CPlayerInput) * 1);
+
+		memcpy(buff, packet.buff, pLen);
+
+		return pLen;
+	});
+	networkClient1.DoWork();
+
+
+	testNetUdp.SetClientSendCallback(8, [](const char* buff, int len) -> void
+	{
+		ClientToServerUpdateBytesUnion packet;
+		packet.ticks.packetTypeCode = 't';
+		packet.ticks.playerNum = 0;
+		packet.ticks.tickNum = 2;
+		packet.ticks.tickCount = 2;
+		packet.ticks.ackServerUpdateNumber = 1;
+
+		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
+		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
+
+		packet.ticks.playerInputs[1].mouseDelta = Vec2(1.0f, 0.0f);
+		packet.ticks.playerInputs[1].playerActions = EInputFlag::None;
+
+		constexpr size_t pLen = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - 2));
+
+		// if (len != pLen || memcmp(buff, packet.buff, pLen) != 0)
+		// 	CryFatalError("ClientToServerUpdateBytesUnion packet not sent as expected");
+
+	});
+	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
+	playerInput.playerActions = EInputFlag::None;
+	gameStateManager.Update(0, t, playerInput, &networkClient1, gs);
 }
 
 #endif
@@ -371,7 +545,8 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 {
 #ifdef test
 	//Test1();
-	Test2();
+	//Test2();
+	Test3();
 	gEnv->pSystem->Quit();
 #endif
 
@@ -383,25 +558,26 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 	return true;
 }
 
-void CGamePlugin::MainUpdate(float frameTime)
+void CGamePlugin::TryInitialiseRollback()
 {
-	if (!gEnv->IsGameOrSimulation() || gEnv->IsDedicated())
-		return;
 
-	if (!m_pPlayerComponent)
+	//CPlayerComponent* pLocalPlayerComponent;
+
+	if (!m_pLocalPlayerComponent)
 	{
 		const IEntity* m_pPlayerEntity = gEnv->pEntitySystem->GetEntity(LOCAL_PLAYER_ENTITY_ID);
 
 		if (!m_pPlayerEntity)
 			return;
 
-		m_pPlayerComponent = m_pPlayerEntity->GetComponent<CPlayerComponent>();
+		CPlayerComponent* pLocalPlayerComponent = m_pPlayerEntity->GetComponent<CPlayerComponent>();
+		m_pLocalPlayerComponent = pLocalPlayerComponent;
 
-		if (!m_pPlayerComponent)
+		if (!pLocalPlayerComponent)
 			return;
 	}
 
-	if (!m_pPlayerComponent->IsAlive() || m_lastUpdateTime.QuadPart == 0)
+	if (!m_pLocalPlayerComponent->IsAlive() || m_lastUpdateTime.QuadPart == 0)
 	{
 		const LARGE_INTEGER startTime = m_pCNetworkClient->StartTime();
 		if (startTime.QuadPart > 0)
@@ -409,6 +585,56 @@ void CGamePlugin::MainUpdate(float frameTime)
 			m_lastUpdateTime = startTime;
 		}
 
+		return;
+	}
+
+	const char localPlayerNumber = m_pCNetworkClient->LocalPlayerNumber();
+
+	for (int i = 0; i < NUM_PLAYERS; ++i)
+	{
+		if(i == localPlayerNumber)
+		{
+			m_rollbackPlayers[i] = m_pLocalPlayerComponent;
+
+			continue;
+		}
+
+		// Connection received from a client, create a player entity and component
+		SEntitySpawnParams spawnParams;
+		spawnParams.pClass = gEnv->pEntitySystem->GetClassRegistry()->GetDefaultClass();
+
+		// Set a unique name for the player entity
+		const string playerName = string().Format("Player%" PRISIZE_T, m_players.size());
+		spawnParams.sName = playerName;
+
+		// Set local player details
+		if (m_players.empty() && !gEnv->IsDedicated())
+		{
+			spawnParams.id = LOCAL_PLAYER_ENTITY_ID;
+			spawnParams.nFlags |= ENTITY_FLAG_LOCAL_PLAYER;
+		}
+
+		// Spawn the player entity
+		if (IEntity* pPlayerEntity = gEnv->pEntitySystem->SpawnEntity(spawnParams))
+		{
+			// Create the player component instance
+			CPlayerComponent* pPlayer = pPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
+
+			m_rollbackPlayers[i] = pPlayer;
+		}
+	}
+
+	m_rollbackInitialised = true;
+}
+
+void CGamePlugin::MainUpdate(float frameTime)
+{
+	if (!gEnv->IsGameOrSimulation() || gEnv->IsDedicated())
+		return;
+
+	if (!m_rollbackInitialised)
+	{
+		TryInitialiseRollback();
 		return;
 	}
 
@@ -432,13 +658,22 @@ void CGamePlugin::MainUpdate(float frameTime)
 
 	// CryLog("CGameStateManager.Update: t %f, ", t);
 
-	const CPlayerInput playerInput = m_pPlayerComponent->GetInput();
-	const CPlayerState playerState = m_gameStateManager.Update(m_pCNetworkClient->PlayerNumber(), t, playerInput, m_pCNetworkClient);
+	const CPlayerInput playerInput = m_pLocalPlayerComponent->GetInput();
+	const char localPlayerNumber = m_pCNetworkClient->LocalPlayerNumber();
 
-	if (IsNull(playerState))
+	CGameState gameState;
+	if (!m_gameStateManager.Update(localPlayerNumber, t, playerInput, m_pCNetworkClient, gameState))
 		return;
+	
+	// m_pLocalPlayerComponent->SetState(gameState.players[localPlayerNumber]);
+	for (int i = 0; i < NUM_PLAYERS; i++)
+	{
+		m_rollbackPlayers[i]->SetState(gameState.players[i]);
+	}
 
-	m_pPlayerComponent->SetState(playerState);
+	CryLog("p:%i p[0]x%d p[0]y%d p[0]z%d - p[1]x%d p[1]y%d p[1]z%d", localPlayerNumber,
+	       gameState.players[0].position.x, gameState.players[0].position.y, gameState.players[0].position.z,
+	       gameState.players[1].position.x, gameState.players[1].position.y, gameState.players[1].position.z);
 }
 
 void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam)
@@ -543,6 +778,9 @@ bool CGamePlugin::OnClientConnectionReceived(int channelId, bool bIsReset)
 
 		// Create the player component instance
 		CPlayerComponent* pPlayer = pPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
+
+		if(spawnParams.id != LOCAL_PLAYER_ENTITY_ID)
+			pPlayer->SetIsRollbackControlled(false);
 
 		if (pPlayer != nullptr)
 		{
