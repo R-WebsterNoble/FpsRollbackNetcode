@@ -85,7 +85,7 @@ if (playerNumber == 1)
 		m_inputAccumulator.playerActions = EInputFlag::None;
 
 		std::memcpy(next->playerInputs, last->playerInputs, sizeof(next->playerInputs));
-		next->playerInputs[playerNumber].mouseDelta = mouseDeltaReminder;
+			next->playerInputs[playerNumber].mouseDelta = mouseDeltaReminder;
 	}
 
 	if(ticksToProcess > 0)

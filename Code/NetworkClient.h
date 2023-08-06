@@ -89,7 +89,7 @@ private:
     
     char m_playerNumber = 0;
     LARGE_INTEGER m_gameStartTime;
-    int m_serverUpdateNumber = -1;
+    int m_serverUpdateNumber = 0;
     int m_serverAckedTick = -1;
 
 

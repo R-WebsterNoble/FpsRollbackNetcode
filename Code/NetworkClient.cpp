@@ -4,6 +4,8 @@
 #include <ws2tcpip.h>
 #include <CrySystem/ISystem.h>
 
+#include <sstream>
+
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 
 // #define BUFLEN 512	//Max length of buffer
@@ -103,11 +105,14 @@ void CNetworkClient::DoWork()
 	memset(buf, '\0', BUFLEN);
 
 	//try to receive some data, this is a blocking call
-	m_networkClientUdp->Receive(buf, BUFLEN);	
+	int len = m_networkClientUdp->Receive(buf, BUFLEN);
 
 	if(buf[0] == 'p')
 	{
 		m_playerNumber = buf[1];
+		char buffer[24];		
+		sprintf(buffer, "RollbackClient%iLog.log", m_playerNumber);
+		gEnv->pLog->SetFileName(buffer);
 	}
 	else if(buf[0] == 's')
 	{
@@ -117,6 +122,12 @@ void CNetworkClient::DoWork()
 	else if (buf[0] == 'r')
 	{
 		const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
+
+		std::stringstream sb;	
+		sb << serverUpdate->ticks;
+		gEnv->pLog->LogToFile("NetworkClient: Receive: %s int expectedLen = %i;", sb.str().c_str(), len);
+		
+
 		m_serverUpdateNumber = serverUpdate->ticks.updateNumber;
 		m_serverAckedTick = serverUpdate->ticks.ackClientTickNum;
 
@@ -185,8 +196,12 @@ void CNetworkClient::SendTicks(const int tickNum)
 	for (int i = 0; i < ticksToSend; ++i)
 	{
 		packet.ticks.playerInputs[i] = *m_playerInputsToSend.GetAt(m_serverAckedTick + 1 + i);
-	}
+	}	
 
 	size_t len = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - ticksToSend));
+
+	std::stringstream sb;
+	sb << packet.ticks;
+	gEnv->pLog->LogToFile("NetworkClient: Sending: %s int expectedLen = %i;", sb.str().c_str(), len);
 	m_networkClientUdp->Send(packet.buff, len);	
 }

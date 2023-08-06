@@ -1,13 +1,15 @@
 #pragma once
 
+#include <ostream>
+
 #include "InputFlag.h"
 #include "StdAfx.h"
 
 constexpr int NUM_PLAYERS = 2;
 
-constexpr static int MAX_TICKS_TO_SEND = 1280 * 10;
+constexpr static int MAX_TICKS_TO_SEND = 128;//1280 * 10;
 
-constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_SEND * 60 * 60;
+constexpr static int MAX_GAME_DURATION_TICKS = 127;//MAX_TICKS_TO_SEND * 60 * 60;
 
 // enum EPlayerActionFlag : uint32
 // {
@@ -27,6 +29,22 @@ struct CPlayerInput
 	Vec2 mouseDelta;
 	EInputFlag playerActions;
 };
+
+inline std::ostream& operator<<(std::ostream& out, CPlayerInput const& a)
+{
+	//CPlayerInput{ Vec2{0.1,0.1}, EInputFlag::MoveForward };
+	out << "CPlayerInput{Vec2{" << a.mouseDelta.x << ", " << a.mouseDelta.y << "}, ";
+	switch (a.playerActions)
+	{
+	case EInputFlag::None: out << "EInputFlag::None";  break;
+	case EInputFlag::MoveLeft: out << "EInputFlag::MoveLeft";  break;
+	case EInputFlag::MoveRight: out << "EInputFlag::MoveRight";  break;
+	case EInputFlag::MoveForward: out << "EInputFlag::MoveForward";  break;
+	case EInputFlag::MoveBackward: out << "EInputFlag::MoveBackward";  break;
+	}
+	out << " }";
+	return out;
+}
 
 struct CPlayerState
 {
@@ -71,7 +89,32 @@ struct ClientToServerUpdate
     int tickNum;
 	int ackServerUpdateNumber;
     CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
+
 };
+
+
+inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& a) {
+	//ClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
+	/*packetTypeCode*/
+	out << "ClientToServerUpdate{ '"
+		<< "/*packetTypeCode*/ " << a.packetTypeCode << "', "
+		<< "/*playerNum*/ " << (int)a.playerNum << ", "
+		<< "/*tickCount*/ " << (int)a.tickCount << ", "
+		<< "/*tickNum*/ " << a.tickNum << ", "
+		<< "/*ackServerUpdateNumber*/ " << a.ackServerUpdateNumber << ", "
+		<< "{ ";
+	for (int i = 0; i < a.tickCount; ++i)
+	{
+		out << a.playerInputs[i];// "CPlayerInput{Vec2{" << playerInputs[i].mouseDelta.x << ", " << playerInputs[i].mouseDelta.y << "}, " << playerInputs[i].playerActions;
+		if (i < a.tickNum - 1)
+			out << ", ";
+		else
+			out << " ";
+	}
+	out << "}};";
+	// precise formatting depends on your use case
+	return out;
+}
 
 union ClientToServerUpdateBytesUnion
 {
@@ -88,7 +131,54 @@ struct ServerToClientUpdate
 	int playerInputsTickCounts[NUM_PLAYERS - 1];
 	int playerInputsTickNums[NUM_PLAYERS - 1];
 	CPlayerInput playerInputs[MAX_TICKS_TO_SEND * NUM_PLAYERS - 1];
+
 };
+
+inline std::ostream& operator<<(std::ostream& out, ServerToClientUpdate const& a) {
+	//ServerToClientUpdate{packetTypeCode = 'r', updateNumber = 1, ackClientTickNum = 1, playerInputsTickCounts = {1},playerInputsTickNums = {1}, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}}};
+
+	out << "ServerToClientUpdate{ '"
+		<< "/*packetTypeCode*/ " << a.packetTypeCode << "', "
+		<< "/*updateNumber*/ " << a.updateNumber << ", "
+		<< "/*ackClientTickNum*/ " << a.ackClientTickNum << ", "
+		<< "{ ";
+	int totalTicks = 0;
+	for (int i = 0; i < NUM_PLAYERS - 1; ++i)
+	{
+		int playerInputsTickCount = a.playerInputsTickCounts[i];
+		totalTicks += playerInputsTickCount;
+		out << playerInputsTickCount << " ";
+		if (i < NUM_PLAYERS - 2)
+			out << ", ";
+		else
+			out << " ";
+	}
+	out << "}, ";
+	out << "{ ";
+	for (int i = 0; i < NUM_PLAYERS - 1; ++i)
+	{
+		out << a.playerInputsTickNums[i] << " ";
+		if (i < NUM_PLAYERS - 2)
+			out << ", ";
+		else
+			out << " ";
+	}
+	out << "}, ";
+	out << "{ ";
+	for (int i = 0; i < totalTicks; ++i)
+	{
+		out << a.playerInputs[i];// "CPlayerInput{Vec2{" << playerInputs[i].mouseDelta.x << ", " << playerInputs[i].mouseDelta.y << "}, " << playerInputs[i].playerActions;
+		if (i < totalTicks - 1)
+			out << ", ";
+		else
+			out << " ";
+	}
+	out << "}};";
+	// precise formatting depends on your use case
+	return out;
+}
+
+
 
 union ServerToClientUpdateBytesUnion
 {

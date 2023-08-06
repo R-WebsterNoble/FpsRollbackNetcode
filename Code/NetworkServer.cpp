@@ -1,5 +1,6 @@
 #include "NetworkServer.h"
 
+#include <sstream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <CrySystem/ISystem.h>
@@ -92,11 +93,11 @@ void CNetworkServer::DoWork()
 	char* recvBuffer = clientToServerUpdate.buff;
 
 
-	CryLog("NetworkServer: Waiting for data...");
+	//CryLog("NetworkServer: Waiting for data...");
 
 	//clear the buffer by filling null, it might have previously received data
 	memset(recvBuffer, '\0', BUFLEN);
-	m_networkServerUdp->Receive(recvBuffer, BUFLEN, &si_other);
+	int len = m_networkServerUdp->Receive(recvBuffer, BUFLEN, &si_other);
 
 	//try to receive some data, this is a blocking call
 
@@ -130,7 +131,10 @@ void CNetworkServer::DoWork()
 	}
 	else if (recvBuffer[0] == 't')
 	{
-		ServerToClientUpdateBytesUnion serverToClientUpdate;
+		std::stringstream sb;
+		sb << clientToServerUpdate.ticks;
+		gEnv->pLog->LogToFile("NetworkServer: Receive: %s int expectedLen = %i;", sb.str().c_str(), len);
+
 		const char playerNum = clientToServerUpdate.ticks.playerNum;
 		const int updateLastTickNum = clientToServerUpdate.ticks.tickNum;
 
@@ -154,14 +158,15 @@ void CNetworkServer::DoWork()
 		}
 
 
-		const int ackedServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber;
+		int ackServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber;
 		RingBuffer<int[NUM_PLAYERS - 1]>* playerUpdatesTickNumbersBuffer = &m_clientUpdatesTickNumbersBuffers[playerNum];
-		const int* ackedClientTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(ackedServerUpdateNumber);
+		const int* ackedClientTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(ackServerUpdateNumber);
 
 		const int thisUpdateNumber = m_clientUpdateNumber[playerNum] += 1;
 
 		int* thisUpdateTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(thisUpdateNumber);
 
+		ServerToClientUpdateBytesUnion serverToClientUpdate;
 		serverToClientUpdate.ticks.packetTypeCode = 'r';
 		serverToClientUpdate.ticks.ackClientTickNum = updateLastTickNum;
 		serverToClientUpdate.ticks.updateNumber = thisUpdateNumber;
@@ -187,13 +192,15 @@ void CNetworkServer::DoWork()
 			p++;
 		}
 
-
+		std::stringstream sb2;
+		sb2 << serverToClientUpdate.ticks;
+		// CryLogAlways("NetworkClient: Sending: %s", sb2.str().c_str());
 		const size_t len = sizeof(ServerToClientUpdate) - (sizeof(serverToClientUpdate.ticks.playerInputs) - sizeof(CPlayerInput) * nInputs);
-
+		gEnv->pLog->LogToFile("NetworkServer: Sending: %s int expectedLen = %i;", sb2.str().c_str(), len);
 		m_networkServerUdp->Send(serverToClientUpdate.buff, len, &si_other);
 
 	}
-	CryLog("NetworkServer: Packet Data:  %s", recvBuffer);
+	//CryLog("NetworkServer: Packet Data:  %s", recvBuffer);
 
 }
 

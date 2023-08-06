@@ -14,7 +14,7 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
-//#define test
+#define test
 
 #ifdef test
 
@@ -22,10 +22,10 @@
 class CTestNetUdp : public CNetUdpClientInterface, public CNetUdpServerInterface
 {
 private:
-	void(*m_clientSendCallback)(const char*, int) = nullptr;
-	int(*m_clientReceiveCallback)(char* buff, int len) = nullptr;
-	void(*m_serverSendCallback)(const char* buff, int len, sockaddr_in* to) = nullptr;
-	int(*m_serverReceiveCallback)(char* buff, int len, sockaddr_in* si_other) = nullptr;
+	std::function<void(const char*, int)> m_clientSendCallback = nullptr;
+	std::function<int(char* buff, int len)> m_clientReceiveCallback = nullptr;
+	std::function<void(const char* buff, int len, sockaddr_in* to)> m_serverSendCallback = nullptr;
+	std::function<int(char* buff, int len, sockaddr_in* si_other)> m_serverReceiveCallback = nullptr;
 	int m_expectedNextCallback = 0;
 	int m_expectedCallbackSequenceNumber = 0;
 	int m_callbackSequenceNumber = 1;
@@ -69,37 +69,41 @@ public:
 
 		m_expectedCallbackSequenceNumber++;
 
+		m_callbackSequenceNumber = m_expectedCallbackSequenceNumber;
+		m_expectedNextCallback = 3;
+
 		return m_serverReceiveCallback(buff, len, si_other);
 	}
 
 
-	void SetClientSendCallback(int n, void (*callback)(const char*, int))
+	void SetClientSendCallback(int n, const std::function<void(const char*, int)>& callback)
 	{
 		m_expectedCallbackSequenceNumber = n;
 		m_expectedNextCallback = 1;
 		m_clientSendCallback = callback;
 	}
 
-	void SetClientReceiveCallback(int n, int (*callback)(char* buff, int len))
+	void SetClientReceiveCallback(int n, const std::function<int(char* buff, int len)>& callback)
 	{
 		m_expectedCallbackSequenceNumber = n;
 		m_expectedNextCallback = 2;
 		m_clientReceiveCallback = callback;
 	}
 
-	void SetServerSendCallback(int n, void (*callback)(const char* buff, int len, sockaddr_in* to))
-	{
-		m_expectedCallbackSequenceNumber = n;
-		m_expectedNextCallback = 3;
-		m_serverSendCallback = callback;
-	}
-
-	void SetServerReceiveCallback(int n, int (*callback)(char* buff, int len, sockaddr_in* si_other))
+	void SetServerCallbacks(int n, const std::function<int(char* buff, int len, sockaddr_in* si_other)> & receiveCallback, const std::function<void(const char* buff, int len, sockaddr_in* to)>& sendCallback)
 	{
 		m_expectedCallbackSequenceNumber = n;
 		m_expectedNextCallback = 4;
-		m_serverReceiveCallback = callback;
+		m_serverSendCallback = sendCallback;
+		m_serverReceiveCallback = receiveCallback;
 	}
+
+	// void SetServerReceiveCallback(int n, int (*callback)(char* buff, int len, sockaddr_in* si_other))
+	// {
+	// 	m_expectedCallbackSequenceNumber = n;
+	// 	m_expectedNextCallback = 4;
+	// 	m_serverReceiveCallback = callback;
+	// }
 };
 
 
@@ -354,46 +358,65 @@ void Test2()
 
 void Test3()
 {
+	constexpr float TICKS_PER_SECOND = 128.0f;
+	constexpr float t = 1.0f / TICKS_PER_SECOND;
+
+	CPlayerInput pi;
 	CGameState gs;
+
 	CTestNetUdp testNetUdp = CTestNetUdp();
 
+	CNetworkServer networkServer = CNetworkServer(&testNetUdp);
 	CNetworkClient networkClient1 = CNetworkClient(&testNetUdp);
 	CNetworkClient networkClient2 = CNetworkClient(&testNetUdp);
-	CNetworkServer networkServer = CNetworkServer(&testNetUdp);
 
-	CGameStateManager gameStateManager = CGameStateManager();
+
+	CGameStateManager Client1gameStateManager = CGameStateManager();
+	CGameStateManager Client2gameStateManager = CGameStateManager();
+	ClientToServerUpdateBytesUnion u;
+	char* client1TestPacketBuffer = u.buff;
+	int client1TestPacketBufferLength = 0;
+
+	char* client2TestPacketBuffer = u.buff;
+	int client2TestPacketBufferLength = 0;
+	
 
 	int sn = 1;
 
-	testNetUdp.SetClientSendCallback(sn++, [](const char* buff, int len) -> void
+	// NetworkServer: Receive: ClientToServerUpdate{ 't', 1, 1, 0, 0, { CPlayerInput{Vec2{100, 0}, EInputFlag::MoveForward } } };; int expectedLen = 24
+	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 0, 0, { 0  }, { 0  }, { } };; int expectedLen = 20
+
+	// NetworkServer: Receive: ClientToServerUpdate{ 't', 0, 1, 0, 0, { CPlayerInput{Vec2{0, 0}, EInputFlag::None } } };; int expectedLen = 24
+	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 0, 0, { 0  }, { 0  }, { } };; int expectedLen = 20
+
+	// NetworkServer: Receive: ClientToServerUpdate{ 't', 0, 1, 1, 0, { CPlayerInput{Vec2{0, 0}, EInputFlag::None } } };; int expectedLen = 24
+	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 1, 1, { -1  }, { 1  }, { } };; int expectedLen = 20
+
+	// NetworkServer: Receive: ClientToServerUpdate{ 't', 1, 1, 1, 0, { CPlayerInput{Vec2{100, 0}, EInputFlag::MoveForward } } };; int expectedLen = 24
+	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 1, 1, { 0  }, { 1  }, { } };; int expectedLen = 20
+	
+
+	testNetUdp.SetClientReceiveCallback(sn++, [](char* buff, int len) -> int
 	{
-		constexpr char c[2] = { 'c', '\0' };
-		if (len != sizeof c || memcmp(buff, c, sizeof c) != 0)
-			CryFatalError("Client connect packet not sent as expected");
-	});
-	networkClient1.Start();
-
-
-	testNetUdp.SetServerReceiveCallback(sn++, [](char* buff, int len, sockaddr_in* si_other) -> int
-	{
-		constexpr char c[2] = { 'c', '\0' };
-		memcpy(buff, c, sizeof c);
-
-		return len;
-	});
-	networkServer.DoWork();
-
-	testNetUdp.SetClientReceiveCallback(2, [](char* buff, int len) -> int
-	{
-		constexpr char p[] = { 'p', 0, '\0' };
+		constexpr char p[] = {'p', 0, '\0'};
 		memcpy(buff, p, sizeof p);
 
 		return len;
 	});
 	networkClient1.DoWork();
 
+	testNetUdp.SetClientReceiveCallback(sn++, [](char* buff, int len) -> int
+	{
+		constexpr char p[] = { 'p', 1, '\0' };
+		memcpy(buff, p, sizeof p);
 
-	testNetUdp.SetClientReceiveCallback(3, [](char* buff, int len) -> int
+		return len;
+	});
+	networkClient2.DoWork();
+
+	gEnv->pLog->SetFileName("Test.log");
+
+	testNetUdp.SetClientReceiveCallback(sn++, [](char* buff, int len) -> int
 	{
 		StartBytesUnion start;
 		start.start.packetTypeCode = 's';
@@ -406,121 +429,76 @@ void Test3()
 	networkClient1.DoWork();
 
 
-	testNetUdp.SetClientSendCallback(4, [](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
+	pi.mouseDelta = Vec2(0.0f, 0.0f);
+	pi.playerActions = EInputFlag::None;
+	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
+
+
+	testNetUdp.SetServerCallbacks(
+		sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
+		{
+			memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
+			return client1TestPacketBufferLength;
+		}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
+	networkServer.DoWork();
+	sn++;
+
+	testNetUdp.SetClientSendCallback(
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
+	pi.mouseDelta = Vec2(1.0f, 0.0f);
+	pi.playerActions = EInputFlag::None;
+	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
+
+
+	testNetUdp.SetServerCallbacks(
+		sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
+		{
+			memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
+			return client1TestPacketBufferLength;
+		}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
+	networkServer.DoWork();
+	sn++;
+
+	testNetUdp.SetClientSendCallback(
+		sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](const char* buff, int len) -> void
 	{
-		ClientToServerUpdateBytesUnion packet;
-		packet.ticks.packetTypeCode = 't';
-		packet.ticks.playerNum = 0;
-		packet.ticks.tickNum = 0;
-		packet.ticks.tickCount = 1;
-		packet.ticks.ackServerUpdateNumber = -1;
-
-		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.992248058f, 0.0f);
-		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
-
-		constexpr size_t pLen = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - 1));
-
-		if (len != pLen || memcmp(buff, packet.buff, pLen) != 0)
-			CryFatalError("ClientToServerUpdateBytesUnion packet not sent as expected");
-
+		client2TestPacketBufferLength = len;
+		memcpy(client2TestPacketBuffer, buff, len);
 	});
-	constexpr float TICKS_PER_SECOND = 128.0f;
-	constexpr float t = 1.0f / TICKS_PER_SECOND;
-	CPlayerInput playerInput;
-	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
-	playerInput.playerActions = EInputFlag::None;
-	gameStateManager.Update(0, t, playerInput, &networkClient1, gs);
+	pi.mouseDelta = Vec2(100.0f, 0.0f);
+	pi.playerActions = EInputFlag::None;
+	Client2gameStateManager.Update(0, t, pi, &networkClient2, gs);
 
-
-	testNetUdp.SetClientSendCallback(5, [](const char* buff, int len) -> void
+	testNetUdp.SetServerCallbacks(
+		sn++, [&client2TestPacketBuffer, &client2TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
 	{
-		ClientToServerUpdateBytesUnion packet;
-		packet.ticks.packetTypeCode = 't';
-		packet.ticks.playerNum = 0;
-		packet.ticks.tickNum = 1;
-		packet.ticks.tickCount = 2;
-		packet.ticks.ackServerUpdateNumber = -1;
-
-		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
-		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
-
-		packet.ticks.playerInputs[1].mouseDelta = Vec2(1.0f, 0.0f);
-		packet.ticks.playerInputs[1].playerActions = EInputFlag::None;
-
-		constexpr size_t pLen = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - 2));
-
-		// if (len != pLen || memcmp(buff, packet.buff, pLen) != 0)
-		// 	CryFatalError("ClientToServerUpdateBytesUnion packet not sent as expected");
-
-	});
-	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
-	playerInput.playerActions = EInputFlag::None;
-	gameStateManager.Update(0, t, playerInput, &networkClient1, gs);
-
-
-	testNetUdp.SetClientReceiveCallback(6, [](char* buff, int len) -> int
+		memcpy(buff, client2TestPacketBuffer, client2TestPacketBufferLength);
+		return client2TestPacketBufferLength;
+	}, [&client2TestPacketBuffer, &client2TestPacketBufferLength](const char* buff, int len, sockaddr_in* to) -> void
 	{
-		ServerToClientUpdateBytesUnion packet;
-		packet.ticks.packetTypeCode = 'r';
-		packet.ticks.ackClientTickNum = 1;
-		packet.ticks.updateNumber = 0;
-		packet.ticks.playerInputsTickCounts[0] = 1;
-		packet.ticks.playerInputsTickNums[0] = 0;
-		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
-		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
-
-		constexpr size_t pLen = sizeof(ServerToClientUpdate) - (sizeof(packet.ticks.playerInputs) - sizeof(CPlayerInput) * 1);
-		memcpy(buff, packet.buff, pLen);
-
-		return pLen;
+		client2TestPacketBufferLength = len;
+		memcpy(client2TestPacketBuffer, buff, len);
 	});
-	networkClient1.DoWork();
+	networkServer.DoWork();
 
-
-	testNetUdp.SetClientReceiveCallback(7, [](char* buff, int len) -> int
-	{
-		ServerToClientUpdateBytesUnion packet;
-		packet.ticks.packetTypeCode = 'r';
-		packet.ticks.ackClientTickNum = 1;
-		packet.ticks.updateNumber = 1;
-		packet.ticks.playerInputsTickCounts[0] = 1;
-		packet.ticks.playerInputsTickNums[0] = 0;
-		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
-		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
-
-		const size_t pLen = sizeof(ServerToClientUpdate) - (sizeof packet.ticks.playerInputs - sizeof(CPlayerInput) * 1);
-
-		memcpy(buff, packet.buff, pLen);
-
-		return pLen;
-	});
-	networkClient1.DoWork();
-
-
-	testNetUdp.SetClientSendCallback(8, [](const char* buff, int len) -> void
-	{
-		ClientToServerUpdateBytesUnion packet;
-		packet.ticks.packetTypeCode = 't';
-		packet.ticks.playerNum = 0;
-		packet.ticks.tickNum = 2;
-		packet.ticks.tickCount = 2;
-		packet.ticks.ackServerUpdateNumber = 1;
-
-		packet.ticks.playerInputs[0].mouseDelta = Vec2(0.0f, 0.0f);
-		packet.ticks.playerInputs[0].playerActions = EInputFlag::None;
-
-		packet.ticks.playerInputs[1].mouseDelta = Vec2(1.0f, 0.0f);
-		packet.ticks.playerInputs[1].playerActions = EInputFlag::None;
-
-		constexpr size_t pLen = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_SEND - 2));
-
-		// if (len != pLen || memcmp(buff, packet.buff, pLen) != 0)
-		// 	CryFatalError("ClientToServerUpdateBytesUnion packet not sent as expected");
-
-	});
-	playerInput.mouseDelta = Vec2(1.0f, 0.0f);
-	playerInput.playerActions = EInputFlag::None;
-	gameStateManager.Update(0, t, playerInput, &networkClient1, gs);
 }
 
 #endif
@@ -547,6 +525,8 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 	//Test1();
 	//Test2();
 	Test3();
+
+	gEnv->pLog->FlushAndClose();
 	gEnv->pSystem->Quit();
 #endif
 
@@ -671,9 +651,9 @@ void CGamePlugin::MainUpdate(float frameTime)
 		m_rollbackPlayers[i]->SetState(gameState.players[i]);
 	}
 
-	CryLog("p:%i p[0]x%d p[0]y%d p[0]z%d - p[1]x%d p[1]y%d p[1]z%d", localPlayerNumber,
-	       gameState.players[0].position.x, gameState.players[0].position.y, gameState.players[0].position.z,
-	       gameState.players[1].position.x, gameState.players[1].position.y, gameState.players[1].position.z);
+	// CryLog("p:%i p[0]x%d p[0]y%d p[0]z%d - p[1]x%d p[1]y%d p[1]z%d", localPlayerNumber,
+	//        gameState.players[0].position.x, gameState.players[0].position.y, gameState.players[0].position.z,
+	//        gameState.players[1].position.x, gameState.players[1].position.y, gameState.players[1].position.z);
 }
 
 void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam)
@@ -695,6 +675,9 @@ void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lp
 			// CNetworkServer* m_pCNetworkServer = new CNetworkServer();
 			if (gEnv->IsDedicated())
 			{
+
+				gEnv->pLog->SetFileName("RollbackServerLog.log");
+
 				CNetUdpServer* netUdpServer = new CNetUdpServer();
 				m_pCNetworkServer = new CNetworkServer(netUdpServer);
 				CThreadRunner* pThread = new CThreadRunner(m_pCNetworkServer);
