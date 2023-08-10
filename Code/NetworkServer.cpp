@@ -1,5 +1,6 @@
 #include "NetworkServer.h"
 
+#include <sysinfoapi.h>
 #include <sstream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -120,7 +121,7 @@ void CNetworkServer::DoWork()
 			QueryPerformanceCounter(&start.start.gameStartTimestamp);
 			//QueryPerformanceFrequency()
 			constexpr long long frequency = 10000000;
-			start.start.gameStartTimestamp.QuadPart += (frequency * 2); // start after 2 seconds to give clients time to settle.
+			start.start.gameStartTimestamp.QuadPart += (frequency * 5); // start after 2 seconds to give clients time to settle.
 
 			// send start game signal to clients
 			for (auto clientSocket : m_clientSockets)
@@ -133,38 +134,71 @@ void CNetworkServer::DoWork()
 	{
 		std::stringstream sb;
 		sb << clientToServerUpdate.ticks;
-		gEnv->pLog->LogToFile("NetworkServer: Receive: %s int expectedLen = %i;", sb.str().c_str(), len);
-
+		LARGE_INTEGER t;
+		QueryPerformanceCounter(&t);
+		gEnv->pLog->LogToFile("NetworkServer: %llu Receive: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
+		
 		const char playerNum = clientToServerUpdate.ticks.playerNum;
 		const int updateLastTickNum = clientToServerUpdate.ticks.tickNum;
 
-		const int serverLatestTickReceived = m_latestTickNumber[playerNum];
+		tiny::optional<int, INT_MIN> serverLatestTickReceived = m_latestTickNumbers[playerNum];
 
-		if (updateLastTickNum > serverLatestTickReceived)
+		if (!serverLatestTickReceived.has_value() || updateLastTickNum > serverLatestTickReceived)
 		{
 			const char updateTickCount = clientToServerUpdate.ticks.tickCount;
-
-			const int ticksToAdd = updateLastTickNum - serverLatestTickReceived;
-
-			const int skip = updateTickCount - ticksToAdd;
-
-			for (int i = 0; i < ticksToAdd; ++i)
+			int firstTickNumToUpdate;
+			char numTicksToAdd;
+			if (serverLatestTickReceived.has_value())
 			{
-				const int tickToUpdate = serverLatestTickReceived + i + 1;
-				(*m_clientInputsBuffer.GetAt(tickToUpdate))[playerNum] = clientToServerUpdate.ticks.playerInputs[skip + i];
+				int serverLatestTickReceivedValue = serverLatestTickReceived.value();
+				firstTickNumToUpdate = serverLatestTickReceivedValue + 1;
+				numTicksToAdd = updateLastTickNum - serverLatestTickReceivedValue;
+			}
+			else
+			{
+				firstTickNumToUpdate = 0;
+				numTicksToAdd = updateTickCount;
 			}
 
-			m_latestTickNumber[playerNum] = updateLastTickNum;
+			if (numTicksToAdd > updateTickCount)
+				CryFatalError("CNetworkServer : Somehow trying to update more ticks than we have in this packet");
+
+			if (numTicksToAdd > 0)
+			{
+				const int skip = updateTickCount - numTicksToAdd;
+
+				for (int i = 0; i < numTicksToAdd; ++i)
+				{
+					(*m_clientInputsBuffer.GetAt(firstTickNumToUpdate + i))[playerNum] = clientToServerUpdate.ticks.playerInputs[skip + i];
+				}
+
+				m_latestTickNumbers[playerNum] = tiny::make_optional<int, INT_MIN>(updateLastTickNum);
+			}
 		}
-
-
-		int ackServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber;
+		
 		RingBuffer<int[NUM_PLAYERS - 1]>* playerUpdatesTickNumbersBuffer = &m_clientUpdatesTickNumbersBuffers[playerNum];
-		const int* ackedClientTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(ackServerUpdateNumber);
+		tiny::optional<int(*)[NUM_PLAYERS - 1]> ackedClientTickNumbers;
+		if (clientToServerUpdate.ticks.ackServerUpdateNumber.has_value())
+		{
+			int ackedServerUpdateNumber = clientToServerUpdate.ticks.ackServerUpdateNumber.value();
+			ackedClientTickNumbers = tiny::optional<int(*)[NUM_PLAYERS - 1]>(playerUpdatesTickNumbersBuffer->GetAt(ackedServerUpdateNumber));
+		}
+		// else
+		// 	ackedClientTickNumbers = tiny::make_optional<int(*)[NUM_PLAYERS - 1]>();
 
-		const int thisUpdateNumber = m_clientUpdateNumber[playerNum] += 1;
 
-		int* thisUpdateTickNumbers = *playerUpdatesTickNumbersBuffer->GetAt(thisUpdateNumber);
+		int thisUpdateNumber;
+		if(m_latestClientUpdateNumbersAcked[playerNum].has_value())
+		{
+			thisUpdateNumber = m_latestClientUpdateNumbersAcked[playerNum].value();
+			m_latestClientUpdateNumbersAcked[playerNum] = tiny::make_optional<int, INT_MIN>(thisUpdateNumber + 1);
+		}
+		else
+		{
+			m_latestClientUpdateNumbersAcked[playerNum] = tiny::make_optional<int, INT_MIN>(0);
+			thisUpdateNumber = 0;
+		}
+		int(*thisPlayerUpdatesTickNumbersBuffer)[NUM_PLAYERS - 1] = playerUpdatesTickNumbersBuffer->GetAt(thisUpdateNumber);
 
 		ServerToClientUpdateBytesUnion serverToClientUpdate;
 		serverToClientUpdate.ticks.packetTypeCode = 'r';
@@ -176,19 +210,27 @@ void CNetworkServer::DoWork()
 			if (i == playerNum)
 				continue;
 
-			const int firstTickToSend = ackedClientTickNumbers[p] + 1;
-			const int lastTickToSend = m_latestTickNumber[i];
-			const int count = lastTickToSend - firstTickToSend;
-
-			serverToClientUpdate.ticks.playerInputsTickNums[p] = firstTickToSend;
-			serverToClientUpdate.ticks.playerInputsTickCounts[p] = count;
-
-			for (int k = 0; k < count; ++k)
+			if (m_latestTickNumbers[i].has_value())
 			{
-				serverToClientUpdate.ticks.playerInputs[nInputs] = (*m_clientInputsBuffer.GetAt(firstTickToSend + k))[i];
-				nInputs++;
+				const int firstTickToSend = ackedClientTickNumbers.has_value() ? ((*ackedClientTickNumbers.value())[p]) + 1 : 0;
+				const int lastTickToSend = m_latestTickNumbers[i].value();
+				const int count = lastTickToSend - firstTickToSend;
+
+				serverToClientUpdate.ticks.playerInputsTickNums[p] = tiny::make_optional<int, INT_MIN>(lastTickToSend);
+				serverToClientUpdate.ticks.playerInputsTickCounts[p] = count;
+
+				for (int k = 0; k < count; ++k)
+				{
+					serverToClientUpdate.ticks.playerInputs[nInputs++] = (*m_clientInputsBuffer.GetAt(firstTickToSend + k))[i];
+				}
+
+				(*thisPlayerUpdatesTickNumbersBuffer)[p] = lastTickToSend; // m_clientUpdatesTickNumbersBuffers[playerNum][thisUpdateNumber][p] = lastTickToSend
 			}
-			thisUpdateTickNumbers[p] = lastTickToSend;
+			else
+			{
+				serverToClientUpdate.ticks.playerInputsTickNums[p] = tiny::make_optional<int, INT_MIN>();
+				serverToClientUpdate.ticks.playerInputsTickCounts[p] = 0;
+			}
 			p++;
 		}
 
@@ -196,7 +238,9 @@ void CNetworkServer::DoWork()
 		sb2 << serverToClientUpdate.ticks;
 		// CryLogAlways("NetworkClient: Sending: %s", sb2.str().c_str());
 		const size_t len = sizeof(ServerToClientUpdate) - (sizeof(serverToClientUpdate.ticks.playerInputs) - sizeof(CPlayerInput) * nInputs);
-		gEnv->pLog->LogToFile("NetworkServer: Sending: %s int expectedLen = %i;", sb2.str().c_str(), len);
+		
+		QueryPerformanceCounter(&t);
+		gEnv->pLog->LogToFile("NetworkServer: %llu Sending: %s int expectedLen = %i;", t.QuadPart, sb2.str().c_str(), len);
 		m_networkServerUdp->Send(serverToClientUpdate.buff, len, &si_other);
 
 	}

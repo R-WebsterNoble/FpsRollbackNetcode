@@ -51,10 +51,10 @@ public:
 	CNetworkClient(CNetUdpClientInterface* networkClientUdp)
         : m_networkClientUdp(networkClientUdp)
     {
-        for (int i = 0; i < NUM_PLAYERS; ++i)
-        {
-            m_clientUpdatesReceivedTickNumbers[i] = -1;
-        }
+        // for (int i = 0; i < NUM_PLAYERS; ++i)
+        // {
+        //     m_clientUpdatesReceivedTickNumbers[i] = -1;
+        // }
     }   
 
     LARGE_INTEGER StartTime() const
@@ -89,11 +89,11 @@ private:
     
     char m_playerNumber = 0;
     LARGE_INTEGER m_gameStartTime;
-    int m_serverUpdateNumber = 0;
-    int m_serverAckedTick = -1;
+    tiny::optional<int, INT_MIN> m_serverUpdateNumber;// = tiny::make_optional<int, INT_MIN>();
+    tiny::optional<int, INT_MIN> m_serverAckedTick;// = tiny::make_optional<int, INT_MIN>();
 
 
-    int m_clientUpdatesReceivedTickNumbers[NUM_PLAYERS-1];
+    tiny::optional<int, INT_MIN> m_clientUpdatesReceivedTickNumbers[NUM_PLAYERS - 1];// = { tiny::make_optional<int, INT_MIN>() };
     RingBuffer<CPlayerInput[NUM_PLAYERS-1]> m_playerInputsReceived;
     RingBuffer<CPlayerInput> m_playerInputsToSend;
     // std::atomic<int> m_playerLatestTicks[NUM_PLAYERS];

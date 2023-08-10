@@ -22,7 +22,7 @@ if (frameTime > 1.0f)
 
 	// CPlayerInput& playerInput = next->playerInputs[playerNumber];
 
-if (playerNumber == 1)
+if (playerNumber == 0)
 {
 	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + (m_tickNum * 0.0001f));
 	localPayerInput.playerActions = EInputFlag::MoveForward;
@@ -53,7 +53,7 @@ if (playerNumber == 1)
 
 		for (int i = 0; i < ticksToProcess; i++)
 		{
-if (playerNumber == 1)
+if (playerNumber == 0)
 {
 	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + (m_tickNum * 0.0001f));
 	localPayerInput.playerActions = EInputFlag::MoveForward;
@@ -114,6 +114,7 @@ void CGameStateManager::DoRollback(CNetworkClient* pNetworkClient)
 		{
 			m_gamesStates.GetAt(update.tickNum)->playerInputs[p] = update.inputs;
 		}
+		m_latestPlayerTickNumbers[p] = update.tickNum;
 	}
 
 	if (earliestUpdatedTick == INT_MAX)

@@ -14,7 +14,7 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
-#define test
+//#define test
 
 #ifdef test
 
@@ -28,48 +28,49 @@ private:
 	std::function<int(char* buff, int len, sockaddr_in* si_other)> m_serverReceiveCallback = nullptr;
 	int m_expectedNextCallback = 0;
 	int m_expectedCallbackSequenceNumber = 0;
-	int m_callbackSequenceNumber = 1;
+	int m_actualCallbackSequenceNumber = 1;
 
 public:
 
 	void Send(const char* buff, int len) override
 	{
-		if (m_expectedNextCallback != 1 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+		if (m_expectedNextCallback != 1 || m_expectedCallbackSequenceNumber != m_actualCallbackSequenceNumber)
 			CryFatalError("Test Callback called in incorrect order");
 
-		m_callbackSequenceNumber++;
+		m_actualCallbackSequenceNumber++;
 
 		m_clientSendCallback(buff, len);
 	}
 
 	int Receive(char* buff, int len) override
 	{
-		if (m_expectedNextCallback != 2 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+		if (m_expectedNextCallback != 2 || m_expectedCallbackSequenceNumber != m_actualCallbackSequenceNumber)
 			CryFatalError("Test Callback called in incorrect order");
 
-		m_callbackSequenceNumber++;
+		m_actualCallbackSequenceNumber++;
 
 		return m_clientReceiveCallback(buff, len);
 	}
 
 	void Send(const char* buff, int len, sockaddr_in* to) override
 	{
-		if (m_expectedNextCallback != 3 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+		if (m_expectedNextCallback != 3 || m_expectedCallbackSequenceNumber != m_actualCallbackSequenceNumber)
 			CryFatalError("Test Callback called in incorrect order");
 
-		m_callbackSequenceNumber++;
+		m_actualCallbackSequenceNumber++;
 
 		m_serverSendCallback(buff, len, to);
 	}
 
 	int Receive(char* buff, int len, sockaddr_in* si_other) override
 	{
-		if (m_expectedNextCallback != 4 || m_expectedCallbackSequenceNumber != m_callbackSequenceNumber)
+		if (m_expectedNextCallback != 4 || m_expectedCallbackSequenceNumber != m_actualCallbackSequenceNumber)
 			CryFatalError("Test Callback called in incorrect order");
 
+		m_actualCallbackSequenceNumber++;
 		m_expectedCallbackSequenceNumber++;
 
-		m_callbackSequenceNumber = m_expectedCallbackSequenceNumber;
+		m_actualCallbackSequenceNumber = m_expectedCallbackSequenceNumber;
 		m_expectedNextCallback = 3;
 
 		return m_serverReceiveCallback(buff, len, si_other);
@@ -358,7 +359,7 @@ void Test2()
 
 void Test3()
 {
-	constexpr float TICKS_PER_SECOND = 128.0f;
+	constexpr float TICKS_PER_SECOND = 1.0f;//128.0f;
 	constexpr float t = 1.0f / TICKS_PER_SECOND;
 
 	CPlayerInput pi;
@@ -477,6 +478,42 @@ void Test3()
 	networkServer.DoWork();
 	sn++;
 
+	testNetUdp.SetClientReceiveCallback(sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len) -> int
+	{
+		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
+		return client1TestPacketBufferLength;
+	});
+	networkClient1.DoWork();
+
+	testNetUdp.SetClientSendCallback(
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
+	{
+		client1TestPacketBufferLength = len;
+		memcpy(client1TestPacketBuffer, buff, len);
+	});
+	pi.mouseDelta = Vec2(1.0f, 0.0f);
+	pi.playerActions = EInputFlag::None;
+	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
+
+	testNetUdp.SetServerCallbacks(
+		sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
+	{
+		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
+		return client1TestPacketBufferLength;
+	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+	{
+		client1TestPacketBufferLength = len;
+		memcpy(client1TestPacketBuffer, buff, len);
+	});
+	networkServer.DoWork();
+
+	testNetUdp.SetClientReceiveCallback(sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len) -> int
+	{
+		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
+		return client1TestPacketBufferLength;
+	});
+	networkClient1.DoWork();
+
 	testNetUdp.SetClientSendCallback(
 		sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](const char* buff, int len) -> void
 	{
@@ -498,6 +535,8 @@ void Test3()
 		memcpy(client2TestPacketBuffer, buff, len);
 	});
 	networkServer.DoWork();
+
+
 
 }
 
@@ -651,7 +690,7 @@ void CGamePlugin::MainUpdate(float frameTime)
 		m_rollbackPlayers[i]->SetState(gameState.players[i]);
 	}
 
-	// CryLog("p:%i p[0]x%d p[0]y%d p[0]z%d - p[1]x%d p[1]y%d p[1]z%d", localPlayerNumber,
+	// CryLog("p:%i p[0]x:%f p[0]y:%f p[0]z:%f - p[1]x:%f p[1]y:%f p[1]z:%f", localPlayerNumber,
 	//        gameState.players[0].position.x, gameState.players[0].position.y, gameState.players[0].position.z,
 	//        gameState.players[1].position.x, gameState.players[1].position.y, gameState.players[1].position.z);
 }

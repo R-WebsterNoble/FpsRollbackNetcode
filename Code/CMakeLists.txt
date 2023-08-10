@@ -59,6 +59,8 @@ add_sources("Rollback_uber.cpp"
 add_sources("Lib_uber.cpp"
     PROJECTS Game
     SOURCE_GROUP "lib"
+		"lib/optional_flag_manipulator_fwd.h"
+		"lib/optional.h"
 		"lib/atomicops.h"
         "lib/readerwritercircularbuffer.h"
         "lib/readerwriterqueue.h"

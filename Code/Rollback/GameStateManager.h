@@ -16,7 +16,7 @@ public:
 
 	CGameStateManager()
 	{
-		constexpr float TICKS_PER_SECOND = 128.0f;
+		constexpr float TICKS_PER_SECOND = 1.0f;// 128.0f;
 		constexpr float MAX_ROLLBACK_TIME = 500.0f;
 
 		m_tickDuration = 1.0f / TICKS_PER_SECOND;

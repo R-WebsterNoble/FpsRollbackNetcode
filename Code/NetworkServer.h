@@ -36,16 +36,11 @@ public:
     CNetworkServer(CNetUdpServerInterface* networkServerUdp)
         : m_networkServerUdp(networkServerUdp)
     {
-	    for (int i = 0; i < NUM_PLAYERS; ++i)
-	    {
-            m_latestTickNumber[i] = -1;
-            m_clientUpdateNumber[i] = -1;
-            int* clientUpdateTickNumber = (*m_clientUpdatesTickNumbersBuffers[i].GetAt(0));
-            for (int j = 0; j < NUM_PLAYERS - 1; ++j)
-            {
-                clientUpdateTickNumber[j] = -1;
-            }
-	    }
+	    // for (int i = 0; i < NUM_PLAYERS; ++i)
+	    // {
+     //        m_latestTickNumbers[i] = tiny::make_optional<int, INT_MIN>();
+     //        m_latestClientUpdateNumbersAcked[i] = tiny::make_optional<int, INT_MIN>();
+	    // }
     }
 
     void DoWork() override;
@@ -57,8 +52,8 @@ private:
 
     char m_clientConnectionCounter = 0;
 
-    int m_latestTickNumber[NUM_PLAYERS];
-    int m_clientUpdateNumber[NUM_PLAYERS];
+    tiny::optional<int, INT_MIN> m_latestTickNumbers[NUM_PLAYERS];
+    tiny::optional<int, INT_MIN> m_latestClientUpdateNumbersAcked[NUM_PLAYERS];
     RingBuffer<int[NUM_PLAYERS-1]> m_clientUpdatesTickNumbersBuffers[NUM_PLAYERS];
     RingBuffer<CPlayerInput[NUM_PLAYERS]> m_clientInputsBuffer;
 

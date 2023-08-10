@@ -4,12 +4,13 @@
 
 #include "InputFlag.h"
 #include "StdAfx.h"
+#include "lib/optional.h"
 
 constexpr int NUM_PLAYERS = 2;
 
-constexpr static int MAX_TICKS_TO_SEND = 128;//1280 * 10;
+constexpr static int MAX_TICKS_TO_SEND = 128;// 1280 * 10;
 
-constexpr static int MAX_GAME_DURATION_TICKS = 127;//MAX_TICKS_TO_SEND * 60 * 60;
+constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_SEND * 60 * 60;
 
 // enum EPlayerActionFlag : uint32
 // {
@@ -83,11 +84,12 @@ union StartBytesUnion
 
 struct ClientToServerUpdate
 {
+	~ClientToServerUpdate(){}
     char packetTypeCode;
 	char playerNum;
 	char tickCount;
     int tickNum;
-	int ackServerUpdateNumber;
+	tiny::optional<int, INT_MIN> ackServerUpdateNumber;
     CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
 
 };
@@ -101,7 +103,7 @@ inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& a
 		<< "/*playerNum*/ " << (int)a.playerNum << ", "
 		<< "/*tickCount*/ " << (int)a.tickCount << ", "
 		<< "/*tickNum*/ " << a.tickNum << ", "
-		<< "/*ackServerUpdateNumber*/ " << a.ackServerUpdateNumber << ", "
+		<< "/*ackServerUpdateNumber*/ " << a.ackServerUpdateNumber.value_or(-99) << ", "
 		<< "{ ";
 	for (int i = 0; i < a.tickCount; ++i)
 	{
@@ -119,17 +121,19 @@ inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& a
 union ClientToServerUpdateBytesUnion
 {
 	ClientToServerUpdateBytesUnion() {  }
-	char buff[sizeof(ClientToServerUpdate)];
+	~ClientToServerUpdateBytesUnion() {  }
+	char buff[sizeof(ClientToServerUpdate)] = { 0 };
 	ClientToServerUpdate ticks;
 };
 
 struct ServerToClientUpdate
 {
+	~ServerToClientUpdate() {}
 	char packetTypeCode;
 	int updateNumber;
 	int ackClientTickNum;
 	int playerInputsTickCounts[NUM_PLAYERS - 1];
-	int playerInputsTickNums[NUM_PLAYERS - 1];
+	tiny::optional<int, INT_MIN> playerInputsTickNums[NUM_PLAYERS - 1];
 	CPlayerInput playerInputs[MAX_TICKS_TO_SEND * NUM_PLAYERS - 1];
 
 };
@@ -157,7 +161,7 @@ inline std::ostream& operator<<(std::ostream& out, ServerToClientUpdate const& a
 	out << "{ ";
 	for (int i = 0; i < NUM_PLAYERS - 1; ++i)
 	{
-		out << a.playerInputsTickNums[i] << " ";
+		out << a.playerInputsTickNums[i].value_or(-99) << " ";
 		if (i < NUM_PLAYERS - 2)
 			out << ", ";
 		else
@@ -183,7 +187,8 @@ inline std::ostream& operator<<(std::ostream& out, ServerToClientUpdate const& a
 union ServerToClientUpdateBytesUnion
 {
 	ServerToClientUpdateBytesUnion() {  }
-    char buff[sizeof(ServerToClientUpdate)];
+	~ServerToClientUpdateBytesUnion() {  }
+    char buff[sizeof(ServerToClientUpdate)] = {0};
 	ServerToClientUpdate ticks;
 };
 
