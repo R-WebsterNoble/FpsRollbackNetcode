@@ -2,21 +2,21 @@
 
 
 
-void CPlayerInputsSynchronizerSender::Enqueue(int tickNum, CPlayerInput playerInput)
+void CPlayerInputsSynchronizer::Enqueue(int tickNum, const CPlayerInput &playerInput)
 {
 	m_tickNum.I = tickNum;
 	(*m_playerInputsBuffer.GetAt(tickNum)) = playerInput;
 }
 
-bool CPlayerInputsSynchronizerSender::GetPaket(OUT char* buff, OUT size_t& size)
+bool CPlayerInputsSynchronizer::GetPaket(OUT char* buff, OUT size_t& size)
 {
-	PlayerInputsSynchronizerClientSendPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerClientSendPacketBytesUnion*>(buff);
+	PlayerInputsSynchronizerPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerPacketBytesUnion*>(buff);
 
 	if(!m_tickNum.has_value())
 	{
 		packet->packet.TickNum = OptInt{};
 		packet->packet.TickCount = 0;
-		size = sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof packet->packet.Inputs[0] * MAX_TICKS_TO_TRANSMIT);
+		size = sizeof PlayerInputsSynchronizerPacket - sizeof packet->packet.Inputs;
 		return true;
 	}
 
@@ -26,6 +26,7 @@ bool CPlayerInputsSynchronizerSender::GetPaket(OUT char* buff, OUT size_t& size)
 
 	if (count > MAX_TICKS_TO_TRANSMIT)
 	{
+		gEnv->pLog->LogToFile("Attempted Send %i inputs but max is %i", count, MAX_TICKS_TO_TRANSMIT);
 		size = 0;
 		return false;
 	}
@@ -38,37 +39,38 @@ bool CPlayerInputsSynchronizerSender::GetPaket(OUT char* buff, OUT size_t& size)
 		packet->packet.Inputs[i] = *(m_playerInputsBuffer.GetAt(firstTickToSend+i));
 	}
 
-	size = sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof packet->packet.Inputs[0] * (MAX_TICKS_TO_TRANSMIT - count));
+	size = sizeof PlayerInputsSynchronizerPacket - (sizeof packet->packet.Inputs[0] * (MAX_TICKS_TO_TRANSMIT - count));
 	return true;
 }
 
-void CPlayerInputsSynchronizerSender::Ack(OptInt tickNum)
+std::pair<int,int> CPlayerInputsSynchronizer::LoadPaket(char* buff, size_t size, RingBuffer<CPlayerInput>& playerInputsBuffer)
 {
-	if(tickNum.has_value())
-		m_lastTickAcked = tickNum;
-}
-
-OptInt CPlayerInputsSynchronizerReceiver::LoadPaket(char* buff, size_t size, RingBuffer<CPlayerInput>& playerInputsBuffer)
-{
-	if(size > sizeof PlayerInputsSynchronizerClientSendPacketBytesUnion)
+	if(size > sizeof PlayerInputsSynchronizerPacketBytesUnion)
 	{
-		gEnv->pLog->LogToFile("Attempted process packet of size %llu which is bigger than the maximum size of PlayerInputsSynchronizerClientSendPacket: %llu", size, sizeof PlayerInputsSynchronizerClientSendPacketBytesUnion);
-		return m_lastTickReceived;
+		gEnv->pLog->LogToFile("Attempted process packet of size %llu which is bigger than the maximum size of PlayerInputsSynchronizerPacket: %llu", size, sizeof PlayerInputsSynchronizerPacketBytesUnion);	
+		return std::pair{m_lastTickAcked.value_or(0), 0};
 	}
 
-	const PlayerInputsSynchronizerClientSendPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerClientSendPacketBytesUnion*>(buff);
+	const PlayerInputsSynchronizerPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerPacketBytesUnion*>(buff);
+
+	const size_t expectedSize = sizeof PlayerInputsSynchronizerPacket - (sizeof packet->packet.Inputs[0] * (MAX_TICKS_TO_TRANSMIT - packet->packet.TickCount));
+	if (size != expectedSize)
+	{
+		gEnv->pLog->LogToFile("Attempted process packet of size %llu which is bigger than the Expected size of a PlayerInputsSynchronizerPacket with TickCount %i : %llu", size, packet->packet.TickCount, sizeof PlayerInputsSynchronizerPacketBytesUnion);
+		return std::pair{m_lastTickAcked.value_or(0), 0};
+	}
 
 	if (!packet->packet.TickNum.has_value())
-		return OptInt{};
+		return std::pair{m_lastTickAcked.value_or(0), 0};
 
 	const int maxCount = packet->packet.TickCount;
 	if (maxCount > MAX_TICKS_TO_TRANSMIT)
 	{
 		gEnv->pLog->LogToFile("Attempted to receive %i inputs, which is more than MAX_TICKS_TO_TRANSMIT = %i", maxCount, MAX_TICKS_TO_TRANSMIT);
-		return m_lastTickReceived;
+		return std::pair{m_lastTickAcked.value_or(0), 0};
 	}
 
-	const int firstTickToReceive = m_lastTickReceived.has_value() ? m_lastTickReceived.value() + 1 : 0;
+	const int firstTickToReceive = m_lastTickAcked.has_value() ? m_lastTickAcked.value() + 1 : 0;
 	const int lastTickToReceive = packet->packet.TickNum.value();
 
 	const int count = (lastTickToReceive - firstTickToReceive) + 1;
@@ -78,7 +80,7 @@ OptInt CPlayerInputsSynchronizerReceiver::LoadPaket(char* buff, size_t size, Rin
 		LARGE_INTEGER t;
 		QueryPerformanceCounter(&t);
 		gEnv->pLog->LogToFile("Attempted to load ticks from %i to %i (inclusive) but packet only contains %i ticks", firstTickToReceive, lastTickToReceive, maxCount);
-		return m_lastTickReceived;
+		return std::pair{m_lastTickAcked.value_or(0), 0};
 	}
 
 	const int skip = maxCount - count; // skip over inputs already received in previous packets
@@ -87,7 +89,7 @@ OptInt CPlayerInputsSynchronizerReceiver::LoadPaket(char* buff, size_t size, Rin
 		*(playerInputsBuffer.GetAt(firstTickToReceive+i)) = packet->packet.Inputs[j++];
 	}
 
-	m_lastTickReceived.I = lastTickToReceive;
+	m_lastTickAcked.I = lastTickToReceive;
 
-	return m_lastTickReceived;
+	return std::pair{lastTickToReceive, count};
 }

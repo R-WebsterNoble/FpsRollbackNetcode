@@ -105,7 +105,7 @@ void CNetworkClient::DoWork()
 	memset(buf, '\0', BUFLEN);
 
 	//try to receive some data, this is a blocking call
-	// int len = m_networkClientUdp->Receive(buf, BUFLEN);
+	int len = m_networkClientUdp->Receive(buf, BUFLEN);
 
 	if(buf[0] == 'p')
 	{
@@ -121,62 +121,35 @@ void CNetworkClient::DoWork()
 	}
 	else if (buf[0] == 'r')
 	{
-		// const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
-		//
-		// std::stringstream sb;	
-		// sb << serverUpdate->ticks;
-		// LARGE_INTEGER t;
-		// QueryPerformanceCounter(&t);
-		// gEnv->pLog->LogToFile("NetworkClient: %llu Receive: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
-		//
-		//
-		// m_lastServerUpdateNumberRecieved.m_i = serverUpdate->ticks.updateNumber;
-		// m_serverAckedClientTick.m_i = serverUpdate->ticks.ackClientTickNum;
-		//
-		//
-		// for (int i = 0, p = 0, o = 0; i < NUM_PLAYERS; ++i)
-		// {
-		// 	if (i == m_playerNumber)
-		// 		continue;
-		// 				
-		// 	OptInt optPlayerInputsTickNum = serverUpdate->ticks.playerInputsTickNums[p];
-		// 	if (optPlayerInputsTickNum.has_value())
-		// 	{
-		// 		const int firstTickToUpdate = m_clientUpdatesReceivedTickNumbers[p].has_value() ? m_clientUpdatesReceivedTickNumbers[p].value() + 1 : 0;
-		// 		const int lastTickToUpdate = optPlayerInputsTickNum.value();
-		//
-		// 		const int numTicksToAdd = lastTickToUpdate - firstTickToUpdate;
-		// 		if (numTicksToAdd > 0)
-		// 		{
-		// 			const int playerInputsTickCount = serverUpdate->ticks.playerInputsTickCounts[p];
-		//
-		// 			if (numTicksToAdd > playerInputsTickCount)
-		// 				CryFatalError("CNetworkClient : Somehow trying to update more ticks than we have in this packet");
-		//
-		// 			const int skip = playerInputsTickCount - numTicksToAdd; // skip inputs that we have already received
-		// 			const int count = numTicksToAdd - skip;
-		//
-		// 			o += skip;
-		// 			for (int k = 0; k < count; ++k)
-		// 			{
-		// 				const CPlayerInput playerInput = serverUpdate->ticks.playerInputs[o++];
-		// 				const int tickNum = firstTickToUpdate + k;
-		//
-		// 				(*m_playerInputsReceived.GetAt(tickNum))[p] = playerInput;
-		//
-		// 				STickInput tickInput = STickInput();
-		// 				tickInput.tickNum = tickNum;
-		// 				tickInput.playerNum = i;
-		// 				tickInput.inputs = playerInput;
-		// 				m_newPlayerInputsQueue.try_enqueue(tickInput);
-		// 			}
-		//
-		// 			m_clientUpdatesReceivedTickNumbers[p] = OptInt(lastTickToUpdate);
-		// 		}
-		// 	}
-		//
-		// 	p++;
-		// }	
+		const ServerToClientUpdateBytesUnion* serverUpdate = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&buf);
+		
+		ServerToClientUpdateDebugViewer debug = ServerToClientUpdateDebugViewer(serverUpdate->ticks);
+		
+		std::stringstream sb;	
+		sb << serverUpdate->ticks;
+		LARGE_INTEGER t;
+		QueryPerformanceCounter(&t);
+		gEnv->pLog->LogToFile("NetworkClient: %llu Receive: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
+
+		size_t offset = 0;
+		for (int i = 0; i < NUM_PLAYERS-1; ++i)
+		{
+			const size_t packetSize = serverUpdate->ticks.synchronizerPacketSizes[i];
+			RingBuffer<CPlayerInput> &playerInputsBuffer = m_playerInputsBuffers[i];
+			auto [firstTickNum, tickCount] = m_receiveSynchronizers[i].LoadPaket(const_cast<char*>(serverUpdate->ticks.synchronizersBytes) + offset, packetSize, playerInputsBuffer);
+			for (int i = 0; i < tickCount; ++i)
+			{
+				const int tickNum = firstTickNum + i;
+
+				STickInput t;
+				t.playerNum = i;
+				t.tickNum = tickNum;
+				t.inputs = *(playerInputsBuffer.GetAt(tickNum));
+				if (!m_newPlayerInputsQueue.try_enqueue(t))
+					CryFatalError("New Player Inputs Queue is full");
+			}
+			offset += packetSize;
+		}
 		
 	}
 
@@ -188,32 +161,26 @@ void CNetworkClient::DoWork()
 
 void CNetworkClient::EnqueueTick(const int tickNum, const CPlayerInput& playerInput)
 {
-	*m_playerInputsToSend.GetAt(tickNum) = playerInput;
+	m_sendSynchronizer.Enqueue(tickNum, playerInput);
 }
 
 void CNetworkClient::SendTicks(const int tickNum)
 {
-	const int ticksToSend = m_serverAckedClientTick.has_value() ? tickNum - m_serverAckedClientTick.value() : 1;
+	ClientToServerUpdate p;
+	p.packetTypeCode = 't';
+	p.playerNum = m_playerNumber;
+	ClientToServerUpdateBytesUnion* packet = reinterpret_cast<ClientToServerUpdateBytesUnion*>(&p);
+	size_t synchronizerSize;
+	if (!m_sendSynchronizer.GetPaket(p.synchronizer.buff, synchronizerSize))
+		CryFatalError("Error while sending tick");
 
-	ClientToServerUpdateBytesUnion packet;
-	packet.ticks.packetTypeCode = 't';
-	packet.ticks.playerNum = m_playerNumber;
-	packet.ticks.tickNum = tickNum;
-	packet.ticks.tickCount = static_cast<char>(ticksToSend);
-	packet.ticks.ackServerUpdateNumber.I = m_lastServerUpdateNumberRecieved.m_i;
-
-	const int nextTickNumToSendToServer = m_serverAckedClientTick.value_or(0) + 1;
-	for (int i = 0; i < static_cast<char>(ticksToSend); ++i)
-	{
-		packet.ticks.playerInputs[i] = *m_playerInputsToSend.GetAt(nextTickNumToSendToServer + i);
-	}
-
-	size_t len = sizeof(ClientToServerUpdateBytesUnion) - (sizeof(CPlayerInput) * (MAX_TICKS_TO_TRANSMIT - static_cast<char>(ticksToSend)));
+	const size_t synchronizerUnusedSpace = sizeof PlayerInputsSynchronizerPacket - synchronizerSize;
+	m_networkClientUdp->Send(packet->buff, sizeof ClientToServerUpdate - synchronizerUnusedSpace);
 	
+
 	std::stringstream sb;
-	sb << packet.ticks;
+	sb << p;
 	LARGE_INTEGER t;
 	QueryPerformanceCounter(&t);
-	gEnv->pLog->LogToFile("NetworkClient: %llu Sending: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
-	m_networkClientUdp->Send(packet.buff, len);	
+	gEnv->pLog->LogToFile("NetworkClient: %llu Sending: %s; int expectedLen = %zu;", t.QuadPart, sb.str().c_str(), synchronizerSize);
 }

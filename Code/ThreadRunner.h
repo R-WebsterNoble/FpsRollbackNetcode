@@ -6,7 +6,8 @@
 class CThreadRunnableInterface
 {
 public:
-    virtual void Start() = 0;
+	virtual ~CThreadRunnableInterface() = default;
+	virtual void Start() = 0;
 	virtual void DoWork() = 0;
 };
 

@@ -16,7 +16,7 @@
 
 #include "Net/PlayerInputsSynchronizer.h"
 
-#define test
+//#define test
 
 #ifdef test
 
@@ -108,8 +108,7 @@ public:
 	// }
 };
 
-
-
+/*
 void Test1()
 {
 	CGameState gs;
@@ -357,7 +356,7 @@ void Test2()
 	playerInput.playerActions = EInputFlag::None;
 	gameStateManager.Update(0, t, playerInput, &networkClient, gs);
 }
-
+*/
 void Test3()
 {
 	constexpr float TICKS_PER_SECOND = 1.0f;//128.0f;
@@ -384,18 +383,6 @@ void Test3()
 
 
 	int sn = 1;
-
-	// NetworkServer: Receive: ClientToServerUpdate{ 't', 1, 1, 0, 0, { CPlayerInput{Vec2{100, 0}, EInputFlag::MoveForward } } };; int expectedLen = 24
-	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 0, 0, { 0  }, { 0  }, { } };; int expectedLen = 20
-
-	// NetworkServer: Receive: ClientToServerUpdate{ 't', 0, 1, 0, 0, { CPlayerInput{Vec2{0, 0}, EInputFlag::None } } };; int expectedLen = 24
-	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 0, 0, { 0  }, { 0  }, { } };; int expectedLen = 20
-
-	// NetworkServer: Receive: ClientToServerUpdate{ 't', 0, 1, 1, 0, { CPlayerInput{Vec2{0, 0}, EInputFlag::None } } };; int expectedLen = 24
-	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 1, 1, { -1  }, { 1  }, { } };; int expectedLen = 20
-
-	// NetworkServer: Receive: ClientToServerUpdate{ 't', 1, 1, 1, 0, { CPlayerInput{Vec2{100, 0}, EInputFlag::MoveForward } } };; int expectedLen = 24
-	// NetworkServer: Sending: ServerToClientUpdate{ 'r', 1, 1, { 0  }, { 1  }, { } };; int expectedLen = 20
 
 
 	testNetUdp.SetClientReceiveCallback(sn++, [](char* buff, int len) -> int
@@ -496,8 +483,7 @@ void Test3()
 	pi.playerActions = EInputFlag::None;
 	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
 
-	testNetUdp.SetServerCallbacks(
-		sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
+	testNetUdp.SetServerCallbacks(sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
 	{
 		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
 		return client1TestPacketBufferLength;
@@ -507,6 +493,7 @@ void Test3()
 		memcpy(client1TestPacketBuffer, buff, len);
 	});
 	networkServer.DoWork();
+	sn++;
 
 	testNetUdp.SetClientReceiveCallback(sn++, [&client1TestPacketBuffer, &client1TestPacketBufferLength](char* buff, int len) -> int
 	{
@@ -515,8 +502,7 @@ void Test3()
 	});
 	networkClient1.DoWork();
 
-	testNetUdp.SetClientSendCallback(
-		sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](const char* buff, int len) -> void
 	{
 		client2TestPacketBufferLength = len;
 		memcpy(client2TestPacketBuffer, buff, len);
@@ -525,8 +511,7 @@ void Test3()
 	pi.playerActions = EInputFlag::None;
 	Client2gameStateManager.Update(0, t, pi, &networkClient2, gs);
 
-	testNetUdp.SetServerCallbacks(
-		sn++, [&client2TestPacketBuffer, &client2TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
+	testNetUdp.SetServerCallbacks(sn++, [&client2TestPacketBuffer, &client2TestPacketBufferLength](char* buff, int len, sockaddr_in* si_other) -> int
 	{
 		memcpy(buff, client2TestPacketBuffer, client2TestPacketBufferLength);
 		return client2TestPacketBufferLength;
@@ -537,35 +522,33 @@ void Test3()
 	});
 	networkServer.DoWork();
 
-
-
 }
+
 
 void TestPlayerInputsSynchronizer_HandlesEmptySendAndReceive()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
 
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof CPlayerInput * MAX_TICKS_TO_TRANSMIT));
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * MAX_TICKS_TO_TRANSMIT));
 
-	const OptInt result = r.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
 
-	CRY_TEST_ASSERT(result.I == OptInt().I);
+	CRY_TEST_ASSERT(result.first == 0);
+	CRY_TEST_ASSERT(result.second == 0);
 }
 
 void TestPlayerInputsSynchronizer_HandlesSingleSendAndReceive()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
@@ -575,20 +558,20 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndReceive()
 	s.Enqueue(0, i);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
 
-	const OptInt result = r.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
 
-	CRY_TEST_ASSERT(result.I == 0);
+	CRY_TEST_ASSERT(result.first == 0);
+	CRY_TEST_ASSERT(result.second == 1);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 0.1f);
 }
 
 void TestPlayerInputsSynchronizer_HandlesSingleSendWithMultipleInputsAndSingleReceive()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
@@ -600,11 +583,12 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendWithMultipleInputsAndSingleRe
 	s.Enqueue(1, i2);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 2)));
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 2)));
 
-	const OptInt result = r.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
 
-	CRY_TEST_ASSERT(result.I == 1);
+	CRY_TEST_ASSERT(result.first == 1);
+	CRY_TEST_ASSERT(result.second == 2);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 0.1f);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(1)->mouseDelta.x == 0.2f);
 }
@@ -612,10 +596,9 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendWithMultipleInputsAndSingleRe
 
 void TestPlayerInputsSynchronizer_HandlesSingleSendAndMultipleReceive()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
@@ -625,22 +608,22 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndMultipleReceive()
 	s.Enqueue(0, i);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
 
-	r.LoadPaket(buff, size, resultsBuffer);
+	s.LoadPaket(buff, size, resultsBuffer);
 
-	const OptInt result = r.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
 
-	CRY_TEST_ASSERT(result.I == 0);
+	CRY_TEST_ASSERT(result.first == 0);
+	CRY_TEST_ASSERT(result.second == 0);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 0.1f);
 }
 
 void TestPlayerInputsSynchronizer_HandlesMultipleSendAndSingleReceive()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
@@ -650,26 +633,26 @@ void TestPlayerInputsSynchronizer_HandlesMultipleSendAndSingleReceive()
 	s.Enqueue(0, i);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
 
 	const CPlayerInput i2 = CPlayerInput{ {0.2f, 0.0f}, EInputFlag::MoveForward };
 	s.Enqueue(1, i2);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 2)));
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 2)));
 
-	const OptInt result = r.LoadPaket(buff, size, resultsBuffer);
-	CRY_TEST_ASSERT(result.I == 1);
+	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	CRY_TEST_ASSERT(result.first == 1);
+	CRY_TEST_ASSERT(result.second == 2);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == i.mouseDelta.x);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(2)->mouseDelta.x == i2.mouseDelta.x);
 }
 
 void TestPlayerInputsSynchronizer_HandlesMaxInputs()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
@@ -682,20 +665,20 @@ void TestPlayerInputsSynchronizer_HandlesMaxInputs()
 
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket);
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket);
 
-	const OptInt result = r.LoadPaket(buff, size, resultsBuffer);
-	CRY_TEST_ASSERT(result.I == MAX_TICKS_TO_TRANSMIT - 1);
+	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	CRY_TEST_ASSERT(result.first == MAX_TICKS_TO_TRANSMIT-1);
+	CRY_TEST_ASSERT(result.second == MAX_TICKS_TO_TRANSMIT);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 1.0f * 1);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(MAX_TICKS_TO_TRANSMIT - 1)->mouseDelta.x == 1.0f * (MAX_TICKS_TO_TRANSMIT));
 }
 
 void TestPlayerInputsSynchronizer_SenderHandlesTooManyInputs()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 
@@ -711,41 +694,42 @@ void TestPlayerInputsSynchronizer_SenderHandlesTooManyInputs()
 
 void TestPlayerInputsSynchronizer_ReceiverHandlesTooLargePacket()
 {
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
 
-	PlayerInputsSynchronizerClientSendPacket p;
-	PlayerInputsSynchronizerClientSendPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerClientSendPacketBytesUnion*>(&p);
+	PlayerInputsSynchronizerPacket p;
+	PlayerInputsSynchronizerPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerPacketBytesUnion*>(&p);
 
-	const OptInt result = r.LoadPaket(packet->buff, (sizeof PlayerInputsSynchronizerClientSendPacket)+1, resultsBuffer);
+	std::pair<int, int> result = s.LoadPaket(packet->buff, (sizeof PlayerInputsSynchronizerPacket) + 1, resultsBuffer);
 
-	CRY_TEST_ASSERT(result.has_value() == false);
+	CRY_TEST_ASSERT(result.first == 0);
+	CRY_TEST_ASSERT(result.second == 0);
 }
 
 void TestPlayerInputsSynchronizer_ReceiverHandlesTooManyTicks()
 {
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
 
-	PlayerInputsSynchronizerClientSendPacket p;
+	PlayerInputsSynchronizerPacket p;
 	p.TickNum.I = MAX_TICKS_TO_TRANSMIT + 1;
-	p.TickCount = MAX_TICKS_TO_TRANSMIT + 1;	
+	p.TickCount = MAX_TICKS_TO_TRANSMIT + 1;
 
-	PlayerInputsSynchronizerClientSendPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerClientSendPacketBytesUnion*>(&p);
+	PlayerInputsSynchronizerPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerPacketBytesUnion*>(&p);
 
-	const OptInt result = r.LoadPaket(packet->buff, sizeof PlayerInputsSynchronizerClientSendPacketBytesUnion, resultsBuffer);
+	std::pair<int, int> result = s.LoadPaket(packet->buff, sizeof PlayerInputsSynchronizerPacketBytesUnion, resultsBuffer);
 
-	CRY_TEST_ASSERT(result.has_value() == false);
+	CRY_TEST_ASSERT(result.first == 0);
+	CRY_TEST_ASSERT(result.second == 0);
 }
 
 void TestPlayerInputsSynchronizer_ReceiverHandlesSendThenReceiveThenSend()
 {
-	CPlayerInputsSynchronizerSender s = CPlayerInputsSynchronizerSender();
-	CPlayerInputsSynchronizerReceiver r = CPlayerInputsSynchronizerReceiver();
+	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket];
+	char buff[sizeof PlayerInputsSynchronizerPacket];
 	size_t size;
 
 	RingBuffer<CPlayerInput> resultsBuffer = RingBuffer<CPlayerInput>();
@@ -755,22 +739,22 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesSendThenReceiveThenSend()
 	s.Enqueue(0, i);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerClientSendPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
+	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
 
-	const OptInt result = r.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
 
-	CRY_TEST_ASSERT(result.I == 0);
+	CRY_TEST_ASSERT(result.first == 0);
+	CRY_TEST_ASSERT(result.second == 1);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 0.1f);
 
-	s.Ack(result);
 
 	const CPlayerInput i2 = CPlayerInput{ {0.2f, 0.0f}, EInputFlag::MoveForward };
 	s.Enqueue(1, i2);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	const OptInt result2 = r.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result2 = s.LoadPaket(buff, size, resultsBuffer);
 
-	CRY_TEST_ASSERT(result2.I == 1);
+	CRY_TEST_ASSERT(result2.second == 1);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 0.1f);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(1)->mouseDelta.x == 0.2f);
 }
@@ -813,7 +797,7 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 
 	//Test1();
 	//Test2();
-	// Test3();
+	Test3();
 	TestPlayerInputsSynchronizer();
 
 	gEnv->pLog->FlushAndClose();

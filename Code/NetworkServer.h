@@ -6,6 +6,8 @@
 
 #include <WinSock2.h>
 
+#include "NetworkClient.h"
+#include "Net/PlayerInputsSynchronizer.h"
 #include "Rollback/GameState.h"
 
 class CNetUdpServerInterface
@@ -29,6 +31,63 @@ private:
     SOCKET m_ListenSocket;
 };
 
+struct ServerToClientUpdate
+{
+	char packetTypeCode = 'r';
+	size_t synchronizerPacketSizes[NUM_PLAYERS - 1] = {0};
+	char synchronizersBytes[sizeof PlayerInputsSynchronizerPacket * (NUM_PLAYERS-1)] = {0};
+};
+
+
+union ServerToClientUpdateBytesUnion
+{
+	ServerToClientUpdate ticks;
+	char buff[sizeof(ServerToClientUpdate)] = { 0 };
+};
+
+struct ServerToClientUpdateDebugViewer
+{
+	ServerToClientUpdateDebugViewer(const ServerToClientUpdate &u)
+	{
+		memcpy(buff, u.synchronizersBytes, sizeof u.synchronizersBytes);
+
+		size_t offset = 0;
+		for (int i = 0; i < NUM_PLAYERS - 1; ++i)
+		{
+			PlayerInputsSynchronizerPacket* p = reinterpret_cast<PlayerInputsSynchronizerPacket*>(buff + offset);
+			s[i] = p;
+			offset += synchronizerPacketSizes[i] = u.synchronizerPacketSizes[i];
+		}
+	}
+	char packetTypeCode = 'r';
+	size_t synchronizerPacketSizes[NUM_PLAYERS - 1] = { 0 };
+	char buff[sizeof PlayerInputsSynchronizerPacket * (NUM_PLAYERS - 1)] = { 0 };
+	PlayerInputsSynchronizerPacket* s[NUM_PLAYERS - 1] = {};
+};
+
+
+inline std::ostream& operator<<(std::ostream& out, const ServerToClientUpdateDebugViewer& rhs) {
+
+	out << "ServerToClientUpdate{ "
+		<< "/*packetTypeCode*/ '" << rhs.packetTypeCode << "', "
+
+		<< "{ ";
+	for (int i = 0; i < NUM_PLAYERS - 1; ++i)
+	{
+		out << *rhs.s[i];
+		if (i < NUM_PLAYERS - 2)
+			out << ", ";
+		else
+			out << " ";
+	}
+	return out;
+}
+
+inline std::ostream& operator<<(std::ostream& out, const ServerToClientUpdate &rhs) {
+	return out << ServerToClientUpdateDebugViewer(rhs);
+}
+
+
 class CNetworkServer : public CThreadRunnableInterface
 {
 public:
@@ -49,13 +108,16 @@ public:
 private:
     CNetUdpServerInterface *m_networkServerUdp;
 
-
     char m_clientConnectionCounter = 0;
 
-    OptInt m_latestTickNumbers[NUM_PLAYERS];
-    OptInt m_latestClientUpdateNumbersAcked[NUM_PLAYERS];
-    RingBuffer<OptInt[NUM_PLAYERS-1]> m_clientUpdatesTickNumbersBuffers[NUM_PLAYERS];
-    RingBuffer<CPlayerInput[NUM_PLAYERS]> m_clientInputsBuffer;
+    sockaddr_in m_clientSockets[NUM_PLAYERS] = {};
 
-    sockaddr_in m_clientSockets[NUM_PLAYERS];
+    CPlayerInputsSynchronizer m_playerInputsSynchronizersReceive[NUM_PLAYERS];
+    CPlayerInputsSynchronizer m_playerInputsSynchronizersSend[NUM_PLAYERS][NUM_PLAYERS-1];
+
+    RingBuffer<CPlayerInput> m_playerInputsBuffer[NUM_PLAYERS];
+
+
+    void UpdateServerData(ClientToServerUpdateBytesUnion& clientToServerUpdate, int len, char playerNumber);
+    bool BuildResponsePacket(char playerNumber, ServerToClientUpdateBytesUnion* serverToClientUpdate, size_t& bytesWritten);
 };

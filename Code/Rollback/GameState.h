@@ -54,30 +54,30 @@ struct OptInt {
 
 struct AtomicOptInt {
 
-	std::atomic<int> m_i;
+	std::atomic<int> I;
 
 	AtomicOptInt()
 	{
-		m_i = INT_MIN;
+		I = INT_MIN;
 	}
 
-	explicit AtomicOptInt(int i) : m_i(0) {}
+	explicit AtomicOptInt(int i) : I(0) {}
 
 
 	int value_or(int v) const {
 		if (has_value())
-			return m_i;
+			return I;
 		return v;
 	}
 
 	bool has_value() const {
-		return m_i != INT_MIN;
+		return I != INT_MIN;
 	}
 
 	int value() const {
 		if (!has_value())
 			CryFatalError("OptInt uninitialized");
-		return m_i;
+		return I;
 	}
 };
 
@@ -139,114 +139,10 @@ union StartBytesUnion
 	struct Start start;
 };
 
-struct ClientToServerUpdate
+inline std::ostream& operator<<(std::ostream& out, OptInt const& rhs)
 {
-	~ClientToServerUpdate(){}
-    char packetTypeCode;
-	char playerNum;
-	char tickCount;
-    int tickNum;
-	OptInt ackServerUpdateNumber;
-    CPlayerInput playerInputs[MAX_TICKS_TO_TRANSMIT];
-
-};
-
-
-inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const &a) {
-	//ClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
-	/*packetTypeCode*/
-	out << "ClientToServerUpdate{ '"
-		<< "/*packetTypeCode*/ " << a.packetTypeCode << "', "
-		<< "/*playerNum*/ " << (int)a.playerNum << ", "
-		<< "/*tickCount*/ " << (int)a.tickCount << ", "
-		<< "/*tickNum*/ " << a.tickNum << ", "
-		<< "/*ackServerUpdateNumber*/ " << a.ackServerUpdateNumber.value_or(-99) << ", "
-		<< "{ ";
-	for (int i = 0; i < a.tickCount; ++i)
-	{
-		out << a.playerInputs[i];// "CPlayerInput{Vec2{" << playerInputs[i].mouseDelta.x << ", " << playerInputs[i].mouseDelta.y << "}, " << playerInputs[i].playerActions;
-		if (i < a.tickNum - 1)
-			out << ", ";
-		else
-			out << " ";
-	}
-	out << "}};";
-	// precise formatting depends on your use case
+	out << rhs.value_or(-99);
 	return out;
-}
-
-union ClientToServerUpdateBytesUnion
-{
-	ClientToServerUpdateBytesUnion() {  }
-	~ClientToServerUpdateBytesUnion() {  }
-	char buff[sizeof(ClientToServerUpdate)] = { 0 };
-	ClientToServerUpdate ticks;
-};
-
-struct ServerToClientUpdate
-{
-	~ServerToClientUpdate() {}
-	char packetTypeCode;
-	int updateNumber;
-	int ackClientTickNum;
-	int playerInputsTickCounts[NUM_PLAYERS - 1];
-	OptInt playerInputsTickNums[NUM_PLAYERS - 1];
-	CPlayerInput playerInputs[MAX_TICKS_TO_TRANSMIT * NUM_PLAYERS - 1];
-
-};
-
-inline std::ostream& operator<<(std::ostream& out, ServerToClientUpdate const &a) {
-	//ServerToClientUpdate{packetTypeCode = 'r', updateNumber = 1, ackClientTickNum = 1, playerInputsTickCounts = {1},playerInputsTickNums = {1}, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}}};
-
-	out << "ServerToClientUpdate{ '"
-		<< "/*packetTypeCode*/ " << a.packetTypeCode << "', "
-		<< "/*updateNumber*/ " << a.updateNumber << ", "
-		<< "/*ackClientTickNum*/ " << a.ackClientTickNum << ", "
-		<< "{ ";
-	int totalTicks = 0;
-	for (int i = 0; i < NUM_PLAYERS - 1; ++i)
-	{
-		int playerInputsTickCount = a.playerInputsTickCounts[i];
-		totalTicks += playerInputsTickCount;
-		out << playerInputsTickCount << " ";
-		if (i < NUM_PLAYERS - 2)
-			out << ", ";
-		else
-			out << " ";
-	}
-	out << "}, ";
-	out << "{ ";
-	for (int i = 0; i < NUM_PLAYERS - 1; ++i)
-	{
-		out << a.playerInputsTickNums[i].value_or(-99) << " ";
-		if (i < NUM_PLAYERS - 2)
-			out << ", ";
-		else
-			out << " ";
-	}
-	out << "}, ";
-	out << "{ ";
-	for (int i = 0; i < totalTicks; ++i)
-	{
-		out << a.playerInputs[i];// "CPlayerInput{Vec2{" << playerInputs[i].mouseDelta.x << ", " << playerInputs[i].mouseDelta.y << "}, " << playerInputs[i].playerActions;
-		if (i < totalTicks - 1)
-			out << ", ";
-		else
-			out << " ";
-	}
-	out << "}};";
-	// precise formatting depends on your use case
-	return out;
-}
-
-
-
-union ServerToClientUpdateBytesUnion
-{
-	ServerToClientUpdateBytesUnion() {  }
-	~ServerToClientUpdateBytesUnion() {  }
-    char buff[sizeof(ServerToClientUpdate)] = {0};
-	ServerToClientUpdate ticks;
 };
 
 
@@ -298,6 +194,7 @@ public:
 
 struct STickInput
 {
+	int playerNum;
 	int tickNum;
 	CPlayerInput inputs;
 };

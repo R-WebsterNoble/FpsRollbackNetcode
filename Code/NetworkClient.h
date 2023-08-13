@@ -7,6 +7,7 @@
 #include <WinSock2.h>
 
 #include "lib/readerwritercircularbuffer.h"
+#include "Net/PlayerInputsSynchronizer.h"
 #include "Rollback/GameState.h"
 
 class CNetUdpClientInterface
@@ -43,6 +44,36 @@ class CNetworkClientInterface
 {
 	virtual void EnqueueTick(int tickNum, const CPlayerInput& playerInput) = 0;
 	virtual void SendTicks(int tickNum) = 0;
+};
+
+struct ClientToServerUpdate
+{
+    char packetTypeCode = 't';
+    char playerNum = 0;
+    PlayerInputsSynchronizerPacketBytesUnion synchronizer = PlayerInputsSynchronizerPacketBytesUnion{};
+
+};
+
+
+
+inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& rhs) {
+    //ClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
+    /*packetTypeCode*/
+    out << "ClientToServerUpdate{ "
+        << "/*packetTypeCode*/ '" << rhs.packetTypeCode << "', "
+        << "/*playerNum*/ " << (int)rhs.playerNum << ", "
+        << rhs.synchronizer.packet
+		<< "}";
+    // precise formatting depends on your use case
+    return out;
+}
+
+union ClientToServerUpdateBytesUnion
+{
+    ClientToServerUpdateBytesUnion() {  }
+    ~ClientToServerUpdateBytesUnion() {  }
+    char buff[sizeof(ClientToServerUpdate)] = { 0 };
+    ClientToServerUpdate ticks;
 };
 
 class CNetworkClient : public CNetworkClientInterface, public CThreadRunnableInterface
@@ -86,16 +117,13 @@ public:
 private:
 
     CNetUdpClientInterface *m_networkClientUdp;
+    CPlayerInputsSynchronizer m_sendSynchronizer;
+    CPlayerInputsSynchronizer m_receiveSynchronizers[NUM_PLAYERS-1];
+
+    RingBuffer<CPlayerInput> m_playerInputsBuffers[NUM_PLAYERS - 1];
     
     char m_playerNumber = 0;
     LARGE_INTEGER m_gameStartTime;
-    AtomicOptInt m_lastServerUpdateNumberRecieved;// = OptInt();
-    AtomicOptInt m_serverAckedClientTick;// = OptInt();
-
-
-    OptInt m_clientUpdatesReceivedTickNumbers[NUM_PLAYERS - 1];// = { OptInt() };
-    RingBuffer<CPlayerInput[NUM_PLAYERS-1]> m_playerInputsReceived;
-    RingBuffer<CPlayerInput> m_playerInputsToSend;
-    // std::atomic<int> m_playerLatestTicks[NUM_PLAYERS];
+    
     moodycamel::BlockingReaderWriterCircularBuffer<STickInput> m_newPlayerInputsQueue = moodycamel::BlockingReaderWriterCircularBuffer<STickInput>(64);
 };

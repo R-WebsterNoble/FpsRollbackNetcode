@@ -4,38 +4,50 @@
 #include "lib/readerwritercircularbuffer.h"
 #include "Rollback/GameState.h"
 
-struct PlayerInputsSynchronizerClientSendPacket
+struct PlayerInputsSynchronizerPacket
 {
 	OptInt TickNum;
 	int TickCount = 0;
 	CPlayerInput Inputs[MAX_TICKS_TO_TRANSMIT];
 };
 
-union PlayerInputsSynchronizerClientSendPacketBytesUnion
+union PlayerInputsSynchronizerPacketBytesUnion
 {
-	PlayerInputsSynchronizerClientSendPacket packet;
-	char buff[sizeof PlayerInputsSynchronizerClientSendPacket] = { 0 };
+	PlayerInputsSynchronizerPacket packet;
+	char buff[sizeof PlayerInputsSynchronizerPacket] = { 0 };
 };
 
-class CPlayerInputsSynchronizerSender
+class CPlayerInputsSynchronizer
 {
 public:
-	void Enqueue(int tickNum, CPlayerInput playerInput);
+	void Enqueue(int tickNum, const CPlayerInput &playerInput);
 	bool GetPaket(OUT char* buff, OUT size_t& size);
-	void Ack(OptInt tickNum);
+	std::pair<int, int> LoadPaket(char* buff, size_t size, RingBuffer<CPlayerInput> &playerInputsBuffer);
 
 private:
-	OptInt m_lastTickAcked;
+	AtomicOptInt m_lastTickAcked;
 	OptInt m_tickNum;
 	RingBuffer<CPlayerInput> m_playerInputsBuffer = RingBuffer<CPlayerInput>();
 };
 
 
-class CPlayerInputsSynchronizerReceiver
+inline std::ostream& operator<<(std::ostream& out, PlayerInputsSynchronizerPacket const& rhs)
 {
-public:
-	OptInt LoadPaket(char* buff, size_t size, RingBuffer<CPlayerInput>& playerInputsBuffer);
-private:
-	OptInt m_lastTickReceived;
-};
-
+    //ClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
+    /*packetTypeCode*/
+    out << "PlayerInputsSynchronizerPacket{ ";
+    out << "/*TickNum*/ " << rhs.TickNum << ", "
+        << "/*TickCount*/ " << rhs.TickCount << ", "
+        << "{ ";
+    for (int i = 0; i < rhs.TickCount; ++i)
+    {
+        out << rhs.Inputs[i];// "CPlayerInput{Vec2{" << playerInputs[i].mouseDelta.x << ", " << playerInputs[i].mouseDelta.y << "}, " << playerInputs[i].playerActions;
+        if (i < rhs.TickCount - 1)
+            out << ", ";
+        else
+            out << " ";
+    }
+    out << " }";
+    // precise formatting depends on your use case
+    return out;
+}
