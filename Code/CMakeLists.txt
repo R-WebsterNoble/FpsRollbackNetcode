@@ -56,6 +56,13 @@ add_sources("Rollback_uber.cpp"
 		"Rollback/RollbackPlayer.h"
 )
 
+add_sources("Net_uber.cpp"
+    PROJECTS Game
+    SOURCE_GROUP "Net"
+		"Net/PlayerInputsSynchronizer.h"
+		"Net/PlayerInputsSynchronizer.cpp"
+)
+
 add_sources("Lib_uber.cpp"
     PROJECTS Game
     SOURCE_GROUP "lib"

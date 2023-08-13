@@ -38,8 +38,8 @@ public:
     {
 	    // for (int i = 0; i < NUM_PLAYERS; ++i)
 	    // {
-     //        m_latestTickNumbers[i] = tiny::make_optional<int, INT_MIN>();
-     //        m_latestClientUpdateNumbersAcked[i] = tiny::make_optional<int, INT_MIN>();
+     //        m_latestTickNumbers[i] = OptInt();
+     //        m_latestClientUpdateNumbersAcked[i] = OptInt();
 	    // }
     }
 
@@ -52,9 +52,9 @@ private:
 
     char m_clientConnectionCounter = 0;
 
-    tiny::optional<int, INT_MIN> m_latestTickNumbers[NUM_PLAYERS];
-    tiny::optional<int, INT_MIN> m_latestClientUpdateNumbersAcked[NUM_PLAYERS];
-    RingBuffer<int[NUM_PLAYERS-1]> m_clientUpdatesTickNumbersBuffers[NUM_PLAYERS];
+    OptInt m_latestTickNumbers[NUM_PLAYERS];
+    OptInt m_latestClientUpdateNumbersAcked[NUM_PLAYERS];
+    RingBuffer<OptInt[NUM_PLAYERS-1]> m_clientUpdatesTickNumbersBuffers[NUM_PLAYERS];
     RingBuffer<CPlayerInput[NUM_PLAYERS]> m_clientInputsBuffer;
 
     sockaddr_in m_clientSockets[NUM_PLAYERS];

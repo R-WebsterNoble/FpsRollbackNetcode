@@ -32,12 +32,12 @@ private:
 };
 
 
-struct STickInput
-{
-    int tickNum;
-    int playerNum;
-    CPlayerInput inputs;
-};
+// struct STickInput
+// {
+//     int tickNum;
+//     int playerNum;
+//     CPlayerInput inputs;
+// };
 
 class CNetworkClientInterface
 {
@@ -89,11 +89,11 @@ private:
     
     char m_playerNumber = 0;
     LARGE_INTEGER m_gameStartTime;
-    tiny::optional<int, INT_MIN> m_serverUpdateNumber;// = tiny::make_optional<int, INT_MIN>();
-    tiny::optional<int, INT_MIN> m_serverAckedTick;// = tiny::make_optional<int, INT_MIN>();
+    AtomicOptInt m_lastServerUpdateNumberRecieved;// = OptInt();
+    AtomicOptInt m_serverAckedClientTick;// = OptInt();
 
 
-    tiny::optional<int, INT_MIN> m_clientUpdatesReceivedTickNumbers[NUM_PLAYERS - 1];// = { tiny::make_optional<int, INT_MIN>() };
+    OptInt m_clientUpdatesReceivedTickNumbers[NUM_PLAYERS - 1];// = { OptInt() };
     RingBuffer<CPlayerInput[NUM_PLAYERS-1]> m_playerInputsReceived;
     RingBuffer<CPlayerInput> m_playerInputsToSend;
     // std::atomic<int> m_playerLatestTicks[NUM_PLAYERS];

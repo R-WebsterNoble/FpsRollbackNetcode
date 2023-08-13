@@ -100,31 +100,31 @@ if (playerNumber == 0)
 
 void CGameStateManager::DoRollback(CNetworkClient* pNetworkClient)
 {
-	STickInput update;
-	int earliestUpdatedTick = INT_MAX;
-
-	while (pNetworkClient->GetInputUpdates(update))
-	{
-		const int p = update.playerNum;
-
-		if (update.tickNum < earliestUpdatedTick)
-			earliestUpdatedTick = update.tickNum;
-
-		if (m_latestPlayerTickNumbers[p] < update.tickNum)
-		{
-			m_gamesStates.GetAt(update.tickNum)->playerInputs[p] = update.inputs;
-		}
-		m_latestPlayerTickNumbers[p] = update.tickNum;
-	}
-
-	if (earliestUpdatedTick == INT_MAX)
-		return;
-
-	for (int i = earliestUpdatedTick; i <= m_tickNum; ++i)
-	{
-		const CTick* previousTick = m_gamesStates.GetAt(i);
-		CTick* nextTick = m_gamesStates.GetAt(i + 1);
-		CSimulation::Next(m_tickDuration, previousTick->gameState, previousTick->playerInputs, nextTick->gameState);
-	}
+	// STickInput update;
+	// int earliestUpdatedTick = INT_MAX;
+	//
+	// while (pNetworkClient->GetInputUpdates(update))
+	// {
+	// 	const int p = update.playerNum;
+	//
+	// 	if (update.tickNum < earliestUpdatedTick)
+	// 		earliestUpdatedTick = update.tickNum;
+	//
+	// 	if (m_latestPlayerTickNumbers[p] < update.tickNum)
+	// 	{
+	// 		m_gamesStates.GetAt(update.tickNum)->playerInputs[p] = update.inputs;
+	// 	}
+	// 	m_latestPlayerTickNumbers[p] = update.tickNum;
+	// }
+	//
+	// if (earliestUpdatedTick == INT_MAX)
+	// 	return;
+	//
+	// for (int i = earliestUpdatedTick; i <= m_tickNum; ++i)
+	// {
+	// 	const CTick* previousTick = m_gamesStates.GetAt(i);
+	// 	CTick* nextTick = m_gamesStates.GetAt(i + 1);
+	// 	CSimulation::Next(m_tickDuration, previousTick->gameState, previousTick->playerInputs, nextTick->gameState);
+	// }
 }
 

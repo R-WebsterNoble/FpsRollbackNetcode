@@ -8,9 +8,9 @@
 
 constexpr int NUM_PLAYERS = 2;
 
-constexpr static int MAX_TICKS_TO_SEND = 128;// 1280 * 10;
+constexpr static int MAX_TICKS_TO_TRANSMIT = 128;// 1280 * 10;
 
-constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_SEND * 60 * 60;
+constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_TRANSMIT * 60 * 60;
 
 // enum EPlayerActionFlag : uint32
 // {
@@ -23,6 +23,63 @@ constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_SEND * 60 * 60;
 //
 // DEFINE_ENUM_FLAG_OPERATORS(EPlayerActionFlag)
 
+struct OptInt {
+
+	int I;
+
+	OptInt()
+	{
+		I = INT_MIN;
+	}
+
+	explicit OptInt(int i) : I(0){}
+
+
+	int value_or(int v) const{
+		if (has_value())			
+			return I;
+		return v;
+	}
+
+	bool has_value() const{
+		return I != INT_MIN;
+	}
+
+	int value() const{
+		if(!has_value())
+			CryFatalError("OptInt uninitialized");
+		return I;
+	}
+};
+
+struct AtomicOptInt {
+
+	std::atomic<int> m_i;
+
+	AtomicOptInt()
+	{
+		m_i = INT_MIN;
+	}
+
+	explicit AtomicOptInt(int i) : m_i(0) {}
+
+
+	int value_or(int v) const {
+		if (has_value())
+			return m_i;
+		return v;
+	}
+
+	bool has_value() const {
+		return m_i != INT_MIN;
+	}
+
+	int value() const {
+		if (!has_value())
+			CryFatalError("OptInt uninitialized");
+		return m_i;
+	}
+};
 
 
 struct CPlayerInput
@@ -89,13 +146,13 @@ struct ClientToServerUpdate
 	char playerNum;
 	char tickCount;
     int tickNum;
-	tiny::optional<int, INT_MIN> ackServerUpdateNumber;
-    CPlayerInput playerInputs[MAX_TICKS_TO_SEND];
+	OptInt ackServerUpdateNumber;
+    CPlayerInput playerInputs[MAX_TICKS_TO_TRANSMIT];
 
 };
 
 
-inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& a) {
+inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const &a) {
 	//ClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
 	/*packetTypeCode*/
 	out << "ClientToServerUpdate{ '"
@@ -133,12 +190,12 @@ struct ServerToClientUpdate
 	int updateNumber;
 	int ackClientTickNum;
 	int playerInputsTickCounts[NUM_PLAYERS - 1];
-	tiny::optional<int, INT_MIN> playerInputsTickNums[NUM_PLAYERS - 1];
-	CPlayerInput playerInputs[MAX_TICKS_TO_SEND * NUM_PLAYERS - 1];
+	OptInt playerInputsTickNums[NUM_PLAYERS - 1];
+	CPlayerInput playerInputs[MAX_TICKS_TO_TRANSMIT * NUM_PLAYERS - 1];
 
 };
 
-inline std::ostream& operator<<(std::ostream& out, ServerToClientUpdate const& a) {
+inline std::ostream& operator<<(std::ostream& out, ServerToClientUpdate const &a) {
 	//ServerToClientUpdate{packetTypeCode = 'r', updateNumber = 1, ackClientTickNum = 1, playerInputsTickCounts = {1},playerInputsTickNums = {1}, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}}};
 
 	out << "ServerToClientUpdate{ '"
@@ -195,8 +252,8 @@ union ServerToClientUpdateBytesUnion
 
 template <typename T> class RingBuffer
 {
-	static constexpr int buffer_capacity = 64000;
-	T m_buffer[MAX_TICKS_TO_SEND];
+	static constexpr int buffer_capacity = MAX_TICKS_TO_TRANSMIT;
+	T m_buffer[MAX_TICKS_TO_TRANSMIT];
 	int m_bufferHead = 0;
 
 public:
@@ -237,4 +294,10 @@ public:
 		if (m_bufferHead == buffer_capacity)
 			m_bufferHead = 0;
 	}
+};
+
+struct STickInput
+{
+	int tickNum;
+	CPlayerInput inputs;
 };
