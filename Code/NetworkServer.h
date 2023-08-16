@@ -112,12 +112,9 @@ private:
 
     sockaddr_in m_clientSockets[NUM_PLAYERS] = {};
 
-    CPlayerInputsSynchronizer m_playerInputsSynchronizersReceive[NUM_PLAYERS];
-    CPlayerInputsSynchronizer m_playerInputsSynchronizersSend[NUM_PLAYERS][NUM_PLAYERS-1];
-
-    RingBuffer<CPlayerInput> m_playerInputsBuffer[NUM_PLAYERS];
+    CPlayerInputsSynchronizer m_playerInputsSynchronizers[NUM_PLAYERS];
 
 
-    void UpdateServerData(ClientToServerUpdateBytesUnion& clientToServerUpdate, int len, char playerNumber);
-    bool BuildResponsePacket(char playerNumber, ServerToClientUpdateBytesUnion* serverToClientUpdate, size_t& bytesWritten);
+    void UpdateServerData(const FlatBuffPacket::ClientToServerUpdate* clientToServerUpdate);
+    bool BuildResponsePacket(char playerNumber, ServerToClientUpdateBytesUnion* packet, size_t& bytesWritten);
 };

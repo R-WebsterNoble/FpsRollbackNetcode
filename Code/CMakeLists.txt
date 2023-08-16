@@ -13,10 +13,26 @@ add_subdirectory("${CRYENGINE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/CRYENGINE")
 #include <IThreadManager.h>
 #include <IThreadManager.h>
 
+#set(FLATBUFFERS_SRC_DIR "${CMAKE_SOURCE_DIR}/lib/flatbuffers")
+#file(GLOB_RECURSE FLATBUFFERS_SRC_FILES "${FLATBUFFERS_SRC_DIR}/*.h")
+#add_library(flatbuffers STATIC ${FLATBUFFERS_SRC_FILES})
+
+
 include("${TOOLS_CMAKE_DIR}/Configure.cmake")
 start_sources()
 
 sources_platform(ALL)
+
+add_sources("Lib_uber.cpp"
+    PROJECTS Game
+    SOURCE_GROUP "lib"
+		"lib/optional_flag_manipulator_fwd.h"
+		"lib/optional.h"
+		"lib/atomicops.h"
+        "lib/readerwritercircularbuffer.h"
+        "lib/readerwriterqueue.h"
+)
+
 add_sources("Code_uber.cpp"
     PROJECTS Game
     SOURCE_GROUP "Root"
@@ -61,17 +77,10 @@ add_sources("Net_uber.cpp"
     SOURCE_GROUP "Net"
 		"Net/PlayerInputsSynchronizer.h"
 		"Net/PlayerInputsSynchronizer.cpp"
+		"Net/ClientToServerUpdate_generated.h"
 )
 
-add_sources("Lib_uber.cpp"
-    PROJECTS Game
-    SOURCE_GROUP "lib"
-		"lib/optional_flag_manipulator_fwd.h"
-		"lib/optional.h"
-		"lib/atomicops.h"
-        "lib/readerwritercircularbuffer.h"
-        "lib/readerwriterqueue.h"
-)
+
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/CVarOverrides.h")
     add_sources("NoUberFile"
@@ -91,6 +100,9 @@ endif()
 end_sources()
 
 CryGameModule(Game FORCE_SHARED PCH "StdAfx.cpp" SOLUTION_FOLDER "Project")
+
+#target_link_libraries(Game PRIVATE flatbuffers)
+#target_include_directories(Game PRIVATE ${FLATBUFFERS_SRC_DIR}/include)
 
 target_include_directories(${THIS_PROJECT}
 PRIVATE

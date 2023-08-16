@@ -1,5 +1,8 @@
 #pragma once
 
+#include <flatbuffers/flatbuffer_builder.h>
+
+#include "ClientToServerUpdate_generated.h"
 #include "PlayerInputsSynchronizer.h"
 #include "lib/readerwritercircularbuffer.h"
 #include "Rollback/GameState.h"
@@ -14,15 +17,17 @@ struct PlayerInputsSynchronizerPacket
 union PlayerInputsSynchronizerPacketBytesUnion
 {
 	PlayerInputsSynchronizerPacket packet;
-	char buff[sizeof PlayerInputsSynchronizerPacket] = { 0 };
+	char buff[sizeof packet] = { 0 };
 };
 
 class CPlayerInputsSynchronizer
 {
 public:
 	void Enqueue(int tickNum, const CPlayerInput &playerInput);
-	bool GetPaket(OUT char* buff, OUT size_t& size);
-	std::pair<int, int> LoadPaket(char* buff, size_t size, RingBuffer<CPlayerInput> &playerInputsBuffer);
+    void Ack(OptInt ack);
+	bool GetPaket(flatbuffers::FlatBufferBuilder& builder, OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>& synchronizer);
+    void UpdateFromPacket(const FlatBuffPacket::PlayerInputsSynchronizer* sync);
+    static std::tuple<int, int, std::vector<CPlayerInput>> ParsePaket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, AtomicOptInt& lastTickAcked);
 
 private:
 	AtomicOptInt m_lastTickAcked;

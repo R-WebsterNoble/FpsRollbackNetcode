@@ -1,0 +1,34 @@
+namespace FlatBuffPacket;
+
+enum InputFlags:byte { None = 0, MoveLeft = 1, MoveRight = 2, MoveForward = 4, MoveBackward = 8 }
+
+struct OptInt {
+	i:int;
+}
+
+struct Vec2 {
+  x:float;
+  y:float;
+}
+
+struct PlayerInput
+{
+	mouse_delta:Vec2;
+	player_actions:InputFlags;
+}
+
+table PlayerInputsSynchronizer
+{
+	tick_num:OptInt;
+	tick_count:int = 0;
+	inputs:[PlayerInput];
+}
+
+table ClientToServerUpdate
+{
+    player_num:byte;
+    player_1_synchronizer:PlayerInputsSynchronizer;
+    player_2_synchronizer:PlayerInputsSynchronizer;
+}
+ 
+root_type ClientToServerUpdate;

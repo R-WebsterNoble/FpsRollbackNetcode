@@ -5,6 +5,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <CrySystem/ISystem.h>
+#include <flatbuffers/minireflect.h>
 
 #include "NetworkClient.h"
 #include "Rollback/GameState.h"
@@ -59,7 +60,7 @@ CNetUdpServer::CNetUdpServer()
 	CryLog("NetworkServer: Bind done");
 }
 
-void CNetUdpServer::Send(const char* buff, int len, sockaddr_in* to)
+void CNetUdpServer::Send(const char* buff, const int len, sockaddr_in* to)
 {
 	const int slen = sizeof(sockaddr_in);
 	if (sendto(m_ListenSocket, buff, len, 0, reinterpret_cast<sockaddr*>(to), slen) == SOCKET_ERROR)
@@ -71,7 +72,7 @@ void CNetUdpServer::Send(const char* buff, int len, sockaddr_in* to)
 	}
 }
 
-int CNetUdpServer::Receive(char* buff, int len, sockaddr_in* si_other)
+int CNetUdpServer::Receive(char* buff, const int len, sockaddr_in* si_other)
 {
 	int slen = sizeof(sockaddr_in);
 
@@ -87,40 +88,36 @@ int CNetUdpServer::Receive(char* buff, int len, sockaddr_in* si_other)
 	return recv_len;
 }
 
-void CNetworkServer::UpdateServerData(ClientToServerUpdateBytesUnion& clientToServerUpdate, int len, const char playerNumber)
+void CNetworkServer::UpdateServerData(const FlatBuffPacket::ClientToServerUpdate* clientToServerUpdate)
 {
-	RingBuffer<CPlayerInput> &playerInputsBuffer = m_playerInputsBuffer[playerNumber];
-	CPlayerInputsSynchronizer &playerInputsSynchronizerReceive = m_playerInputsSynchronizersReceive[playerNumber];
-	const size_t synchronizerSize = len - (sizeof ClientToServerUpdateBytesUnion - sizeof PlayerInputsSynchronizerPacket);
-	auto [tickNum, count] = playerInputsSynchronizerReceive.LoadPaket(clientToServerUpdate.ticks.synchronizer.buff, synchronizerSize, playerInputsBuffer);
-
-
-	for (int i = 0, p = 0; i < NUM_PLAYERS; i++)
-	{
-		if(i == playerNumber)
-			continue;
-
-		CPlayerInputsSynchronizer(*inputsSynchronizersSend)[NUM_PLAYERS-1] = &m_playerInputsSynchronizersSend[p];
-		for (int j = 0; j < count; ++j)
-		{
-			inputsSynchronizersSend[i]->Enqueue(tickNum + j, *playerInputsBuffer.GetAt(tickNum + j));
-		}
-		p++;
-	}
+	m_playerInputsSynchronizers[0].UpdateFromPacket(clientToServerUpdate->player_1_synchronizer());
+	m_playerInputsSynchronizers[1].UpdateFromPacket(clientToServerUpdate->player_2_synchronizer());
+	// size_t offset = 0;
+	// const char* buff = clientToServerUpdate.ticks.synchronizers[0].buff;
+	//
+	// for (int i = 0; i < NUM_PLAYERS; ++i)
+	// {
+	// 	
+	// }
+	//
+	//
+	// CPlayerInputsSynchronizer &playerInputsSynchronizer = m_playerInputsSynchronizers[playerNumber];
+	// const size_t synchronizerSize = len - (sizeof ClientToServerUpdateBytesUnion - sizeof PlayerInputsSynchronizerPacket);
+	// playerInputsSynchronizer.UpdateFromPacket(clientToServerUpdate.ticks.synchronizers[playerNumber].buff, synchronizerSize);
 }
 
 bool CNetworkServer::BuildResponsePacket(const char playerNumber, ServerToClientUpdateBytesUnion* packet, size_t& bytesWritten)
 {
 	bytesWritten = 0;
-	for (int i = 0; i < NUM_PLAYERS-1; ++i)
-	{
-		size_t size;
-		if (!m_playerInputsSynchronizersSend[playerNumber][i].GetPaket(packet->ticks.synchronizersBytes + bytesWritten, size))
-			return false;
-
-		packet->ticks.synchronizerPacketSizes[i] = size;
-		bytesWritten += size;
-	}
+	// for (int i = 0; i < NUM_PLAYERS; ++i)
+	// {
+	// 	size_t size;
+	// 	if (!m_playerInputsSynchronizers[i].GetPaket(packet->ticks.synchronizersBytes + bytesWritten, size))
+	// 		return false;
+	//
+	// 	packet->ticks.synchronizerPacketSizes[i] = size;
+	// 	bytesWritten += size;
+	// }
 	return true;
 }
 
@@ -168,33 +165,44 @@ void CNetworkServer::DoWork()
 			}
 		}
 	}
-	else if (recvBuffer[0] == 't')
+	else 
 	{
+		flatbuffers::Verifier verifier(reinterpret_cast<uint8_t*>(recvBuffer), len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(reinterpret_cast<uint8_t*>(recvBuffer));
 
-		std::stringstream sb;
-		sb << clientToServerUpdate.ticks;
-		LARGE_INTEGER t;
-		QueryPerformanceCounter(&t);
-		gEnv->pLog->LogToFile("NetworkServer: %llu Receive: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
+			const auto debugOut = flatbuffers::FlatBufferToString(reinterpret_cast<uint8_t*>(recvBuffer), FlatBuffPacket::ClientToServerUpdateTypeTable());
 
-		const char playerNumber = clientToServerUpdate.ticks.playerNum;
+			LARGE_INTEGER t;
+			QueryPerformanceCounter(&t);
+			gEnv->pLog->LogToFile("NetworkServer: %llu Receive: %s int expectedLen = %i;", t.QuadPart, debugOut.c_str(), len);
 
-		UpdateServerData(clientToServerUpdate, len, playerNumber);
+			// std::stringstream sb;
+			// sb << clientToServerUpdate.ticks;
+			// LARGE_INTEGER t;
+			// QueryPerformanceCounter(&t);
+			// gEnv->pLog->LogToFile("NetworkServer: %llu Receive: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
+
+			const char playerNumber = clientToServerUpdate.ticks.playerNum;
+
+			UpdateServerData(update);
 
 
-		ServerToClientUpdate serverToClientUpdate;
-		ServerToClientUpdateBytesUnion* packet = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&serverToClientUpdate);
-		size_t bytesWritten;
-		if(!BuildResponsePacket(playerNumber, packet, bytesWritten))
-			return;
+			// ServerToClientUpdate serverToClientUpdate;
+			// ServerToClientUpdateBytesUnion* packet = reinterpret_cast<ServerToClientUpdateBytesUnion*>(&serverToClientUpdate);
+			// size_t bytesWritten;
+			// if (!BuildResponsePacket(playerNumber, packet, bytesWritten))
+			// 	return;
+			//
+			// ServerToClientUpdateDebugViewer debug = ServerToClientUpdateDebugViewer(serverToClientUpdate);
 
-		ServerToClientUpdateDebugViewer debug = ServerToClientUpdateDebugViewer(serverToClientUpdate);
-
-		std::stringstream sb2;
-		sb2 << debug;
-		QueryPerformanceCounter(&t);
-		gEnv->pLog->LogToFile("NetworkServer: %llu Sending: %s int expectedLen = %zu;", t.QuadPart, sb2.str().c_str(), bytesWritten);
-		m_networkServerUdp->Send(packet->buff, len, &si_other);
+			// std::stringstream sb2;
+			// sb2 << debug;
+			// QueryPerformanceCounter(&t);
+			// gEnv->pLog->LogToFile("NetworkServer: %llu Sending: %s int expectedLen = %zu;", t.QuadPart, sb2.str().c_str(), bytesWritten);
+			// m_networkServerUdp->Send(packet->buff, len, &si_other);
+		}
 
 	}
 

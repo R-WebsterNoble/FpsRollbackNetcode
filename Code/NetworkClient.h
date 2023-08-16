@@ -50,8 +50,7 @@ struct ClientToServerUpdate
 {
     char packetTypeCode = 't';
     char playerNum = 0;
-    PlayerInputsSynchronizerPacketBytesUnion synchronizer = PlayerInputsSynchronizerPacketBytesUnion{};
-
+    PlayerInputsSynchronizerPacketBytesUnion synchronizers[NUM_PLAYERS] = { PlayerInputsSynchronizerPacketBytesUnion{} };
 };
 
 
@@ -61,17 +60,22 @@ inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& r
     /*packetTypeCode*/
     out << "ClientToServerUpdate{ "
         << "/*packetTypeCode*/ '" << rhs.packetTypeCode << "', "
-        << "/*playerNum*/ " << (int)rhs.playerNum << ", "
-        << rhs.synchronizer.packet
-		<< "}";
+        << "/*playerNum*/ " << (int)rhs.playerNum << ", { ";
+        for (int i = 0; i < NUM_PLAYERS - 1; ++i)
+        {
+            out << rhs.synchronizers[i].packet;
+            if (i < NUM_PLAYERS - 2)
+                out << ", ";
+            else
+                out << " ";
+        }    
+        out << "}}";
     // precise formatting depends on your use case
     return out;
 }
 
 union ClientToServerUpdateBytesUnion
 {
-    ClientToServerUpdateBytesUnion() {  }
-    ~ClientToServerUpdateBytesUnion() {  }
     char buff[sizeof(ClientToServerUpdate)] = { 0 };
     ClientToServerUpdate ticks;
 };
@@ -117,10 +121,7 @@ public:
 private:
 
     CNetUdpClientInterface *m_networkClientUdp;
-    CPlayerInputsSynchronizer m_sendSynchronizer;
-    CPlayerInputsSynchronizer m_receiveSynchronizers[NUM_PLAYERS-1];
-
-    RingBuffer<CPlayerInput> m_playerInputsBuffers[NUM_PLAYERS - 1];
+    CPlayerInputsSynchronizer m_playerInputsSynchronizers[NUM_PLAYERS];
     
     char m_playerNumber = 0;
     LARGE_INTEGER m_gameStartTime;

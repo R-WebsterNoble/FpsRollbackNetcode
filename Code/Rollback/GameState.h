@@ -32,7 +32,7 @@ struct OptInt {
 		I = INT_MIN;
 	}
 
-	explicit OptInt(int i) : I(0){}
+	explicit OptInt(int i) : I(i){}
 
 
 	int value_or(int v) const{

@@ -6,6 +6,11 @@
 
 #include <sstream>
 
+#include "flatbuffers/flatbuffers.h"
+#include "flatbuffers/minireflect.h"
+#include "Net/ClientToServerUpdate_generated.h"
+// #include "Net/ClientToServerUpdate_generated.h"
+
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 
 // #define BUFLEN 512	//Max length of buffer
@@ -131,25 +136,25 @@ void CNetworkClient::DoWork()
 		QueryPerformanceCounter(&t);
 		gEnv->pLog->LogToFile("NetworkClient: %llu Receive: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
 
-		size_t offset = 0;
-		for (int i = 0; i < NUM_PLAYERS-1; ++i)
-		{
-			const size_t packetSize = serverUpdate->ticks.synchronizerPacketSizes[i];
-			RingBuffer<CPlayerInput> &playerInputsBuffer = m_playerInputsBuffers[i];
-			auto [firstTickNum, tickCount] = m_receiveSynchronizers[i].LoadPaket(const_cast<char*>(serverUpdate->ticks.synchronizersBytes) + offset, packetSize, playerInputsBuffer);
-			for (int i = 0; i < tickCount; ++i)
-			{
-				const int tickNum = firstTickNum + i;
-
-				STickInput t;
-				t.playerNum = i;
-				t.tickNum = tickNum;
-				t.inputs = *(playerInputsBuffer.GetAt(tickNum));
-				if (!m_newPlayerInputsQueue.try_enqueue(t))
-					CryFatalError("New Player Inputs Queue is full");
-			}
-			offset += packetSize;
-		}
+		// size_t offset = 0;
+		// for (int i = 0; i < NUM_PLAYERS-1; ++i)
+		// {
+		// 	const size_t packetSize = serverUpdate->ticks.synchronizerPacketSizes[i];
+		// 	RingBuffer<CPlayerInput> &playerInputsBuffer = m_playerInputsBuffers[i];
+		// 	auto [firstTickNum, tickCount] = m_receiveSynchronizers[i].UpdateFromPacket(const_cast<char*>(serverUpdate->ticks.synchronizersBytes) + offset, packetSize, playerInputsBuffer);
+		// 	for (int i = 0; i < tickCount; ++i)
+		// 	{
+		// 		const int tickNum = firstTickNum + i;
+		//
+		// 		STickInput t;
+		// 		t.playerNum = i;
+		// 		t.tickNum = tickNum;
+		// 		t.inputs = *(playerInputsBuffer.GetAt(tickNum));
+		// 		if (!m_newPlayerInputsQueue.try_enqueue(t))
+		// 			CryFatalError("New Player Inputs Queue is full");
+		// 	}
+		// 	offset += packetSize;
+		// }
 		
 	}
 
@@ -161,26 +166,76 @@ void CNetworkClient::DoWork()
 
 void CNetworkClient::EnqueueTick(const int tickNum, const CPlayerInput& playerInput)
 {
-	m_sendSynchronizer.Enqueue(tickNum, playerInput);
+	m_playerInputsSynchronizers[m_playerNumber].Enqueue(tickNum, playerInput);
 }
 
 void CNetworkClient::SendTicks(const int tickNum)
 {
-	ClientToServerUpdate p;
-	p.packetTypeCode = 't';
-	p.playerNum = m_playerNumber;
-	ClientToServerUpdateBytesUnion* packet = reinterpret_cast<ClientToServerUpdateBytesUnion*>(&p);
-	size_t synchronizerSize;
-	if (!m_sendSynchronizer.GetPaket(p.synchronizer.buff, synchronizerSize))
-		CryFatalError("Error while sending tick");
+	// flatbuffers::FlatBufferBuilder builder;
+	// CPlayerInputsSynchronizer (*sync)[2] = &m_playerInputsSynchronizers;
+	// FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, OptInt(tickNum), m_playerInputsSynchronizers->m_lastTickAcked)
+	// FlatBuffPacket::CreatePlayerInputsSynchronizer(builder,)
+	// FlatBuffPacket::CreateClientToServerUpdate(builder, m_playerNumber,)
+	//
+	//
+	// char buf[sizeof(ServerToClientUpdate)];
+	//
+	// int len = m_networkClientUdp->Receive(buf, BUFLEN);
+	//
+	// flatbuffers::FlatBufferBuilder builder(1024);
+	//
+	// ClientToServerUpdate monsterobj;
+	// Deserialize from buffer into object.
+	// const auto clientToServerUpdate = FlatBuffPacket::GetClientToServerUpdate(buf);
 
-	const size_t synchronizerUnusedSpace = sizeof PlayerInputsSynchronizerPacket - synchronizerSize;
-	m_networkClientUdp->Send(packet->buff, sizeof ClientToServerUpdate - synchronizerUnusedSpace);
+	// const auto playerInputsSynchronizerPackets = clientToServerUpdate->player_1_synchronizer();
+	//
+	// for (const auto& packet : *playerInputsSynchronizerPackets) {
+	// 	// Access the properties of each packet
+	// 	const auto tickNum = packet->tick_num();
+	// 	const auto tickCount = packet->tick_count();
+	//
+	// 	// Access the inputs vector
+	// 	const auto inputs = packet->inputs();
+	// 	for (const auto& input : *inputs) {
+	// 		// Access the properties of each input
+	// 		const auto mouseDelta = input->mouse_delta();
+	// 		const auto playerActions = input->player_actions();
+	// 		// Process the input data as needed
+	// 	}
+	// }
+
 	
+	// // Update object directly like a C++ class instance.
+	// monsterobj.name = "Bob";  // Change the name.
+	//
+	// // Serialize into new flatbuffer.
+	// flatbuffers::FlatBufferBuilder fbb;
+	// fbb.Finish(Monster::Pack(fbb, &monsterobj));
+	//
+	// // auto monster = ClientToServerUpdate(std::data);
 
-	std::stringstream sb;
-	sb << p;
+	flatbuffers::FlatBufferBuilder builder;
+
+	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> p1;
+	if (!m_playerInputsSynchronizers[0].GetPaket(builder, p1))
+		return;
+
+	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> p2;
+	if (!m_playerInputsSynchronizers[1].GetPaket(builder, p2))
+		return;
+
+	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, m_playerNumber, p1, p2);
+
+	builder.Finish(clientToServerUpdate);
+	uint8_t* bufferPointer = builder.GetBufferPointer();
+
+	const flatbuffers::FlatBufferBuilder::SizeT len = builder.GetSize();
+	m_networkClientUdp->Send(reinterpret_cast<char*>(bufferPointer), len);
+
+	const auto debugOut = flatbuffers::FlatBufferToString(bufferPointer, FlatBuffPacket::ClientToServerUpdateTypeTable());	
+	
 	LARGE_INTEGER t;
 	QueryPerformanceCounter(&t);
-	gEnv->pLog->LogToFile("NetworkClient: %llu Sending: %s; int expectedLen = %zu;", t.QuadPart, sb.str().c_str(), synchronizerSize);
+	gEnv->pLog->LogToFile("NetworkClient: %llu Sending: %s; int expectedLen = %u;", t.QuadPart, debugOut.c_str(), len);
 }

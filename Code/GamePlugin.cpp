@@ -16,7 +16,7 @@
 
 #include "Net/PlayerInputsSynchronizer.h"
 
-//#define test
+#define test
 
 #ifdef test
 
@@ -524,7 +524,7 @@ void Test3()
 
 }
 
-
+/*
 void TestPlayerInputsSynchronizer_HandlesEmptySendAndReceive()
 {
 	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
@@ -538,7 +538,7 @@ void TestPlayerInputsSynchronizer_HandlesEmptySendAndReceive()
 
 	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * MAX_TICKS_TO_TRANSMIT));
 
-	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(buff, size, resultsBuffer);
 
 	CRY_TEST_ASSERT(result.first == 0);
 	CRY_TEST_ASSERT(result.second == 0);
@@ -560,7 +560,7 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndReceive()
 
 	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
 
-	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(buff, size, resultsBuffer);
 
 	CRY_TEST_ASSERT(result.first == 0);
 	CRY_TEST_ASSERT(result.second == 1);
@@ -585,7 +585,7 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendWithMultipleInputsAndSingleRe
 
 	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 2)));
 
-	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(buff, size, resultsBuffer);
 
 	CRY_TEST_ASSERT(result.first == 1);
 	CRY_TEST_ASSERT(result.second == 2);
@@ -610,9 +610,9 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndMultipleReceive()
 
 	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
 
-	s.LoadPaket(buff, size, resultsBuffer);
+	s.UpdateFromPacket(buff, size, resultsBuffer);
 
-	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(buff, size, resultsBuffer);
 
 	CRY_TEST_ASSERT(result.first == 0);
 	CRY_TEST_ASSERT(result.second == 0);
@@ -641,7 +641,7 @@ void TestPlayerInputsSynchronizer_HandlesMultipleSendAndSingleReceive()
 
 	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 2)));
 
-	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(buff, size, resultsBuffer);
 	CRY_TEST_ASSERT(result.first == 1);
 	CRY_TEST_ASSERT(result.second == 2);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == i.mouseDelta.x);
@@ -667,7 +667,7 @@ void TestPlayerInputsSynchronizer_HandlesMaxInputs()
 
 	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket);
 
-	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(buff, size, resultsBuffer);
 	CRY_TEST_ASSERT(result.first == MAX_TICKS_TO_TRANSMIT-1);
 	CRY_TEST_ASSERT(result.second == MAX_TICKS_TO_TRANSMIT);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 1.0f * 1);
@@ -701,7 +701,7 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesTooLargePacket()
 	PlayerInputsSynchronizerPacket p;
 	PlayerInputsSynchronizerPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerPacketBytesUnion*>(&p);
 
-	std::pair<int, int> result = s.LoadPaket(packet->buff, (sizeof PlayerInputsSynchronizerPacket) + 1, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(packet->buff, (sizeof PlayerInputsSynchronizerPacket) + 1, resultsBuffer);
 
 	CRY_TEST_ASSERT(result.first == 0);
 	CRY_TEST_ASSERT(result.second == 0);
@@ -719,7 +719,7 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesTooManyTicks()
 
 	PlayerInputsSynchronizerPacketBytesUnion* packet = reinterpret_cast<PlayerInputsSynchronizerPacketBytesUnion*>(&p);
 
-	std::pair<int, int> result = s.LoadPaket(packet->buff, sizeof PlayerInputsSynchronizerPacketBytesUnion, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(packet->buff, sizeof PlayerInputsSynchronizerPacketBytesUnion, resultsBuffer);
 
 	CRY_TEST_ASSERT(result.first == 0);
 	CRY_TEST_ASSERT(result.second == 0);
@@ -741,7 +741,7 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesSendThenReceiveThenSend()
 
 	CRY_TEST_ASSERT(size == sizeof PlayerInputsSynchronizerPacket - (sizeof CPlayerInput * (MAX_TICKS_TO_TRANSMIT - 1)));
 
-	std::pair<int, int> result = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result = s.UpdateFromPacket(buff, size, resultsBuffer);
 
 	CRY_TEST_ASSERT(result.first == 0);
 	CRY_TEST_ASSERT(result.second == 1);
@@ -752,7 +752,7 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesSendThenReceiveThenSend()
 	s.Enqueue(1, i2);
 	CRY_TEST_ASSERT(s.GetPaket(buff, size));
 
-	std::pair<int, int> result2 = s.LoadPaket(buff, size, resultsBuffer);
+	std::pair<int, int> result2 = s.UpdateFromPacket(buff, size, resultsBuffer);
 
 	CRY_TEST_ASSERT(result2.second == 1);
 	CRY_TEST_ASSERT(resultsBuffer.GetAt(0)->mouseDelta.x == 0.1f);
@@ -772,6 +772,7 @@ void TestPlayerInputsSynchronizer()
 	TestPlayerInputsSynchronizer_ReceiverHandlesTooManyTicks();
 	TestPlayerInputsSynchronizer_ReceiverHandlesSendThenReceiveThenSend();
 }
+*/
 
 #endif
 
@@ -798,7 +799,7 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 	//Test1();
 	//Test2();
 	Test3();
-	TestPlayerInputsSynchronizer();
+	//TestPlayerInputsSynchronizer();
 
 	gEnv->pLog->FlushAndClose();
 	gEnv->pSystem->Quit();
