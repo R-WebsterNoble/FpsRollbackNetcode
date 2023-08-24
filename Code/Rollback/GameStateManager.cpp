@@ -105,16 +105,20 @@ void CGameStateManager::DoRollback(CNetworkClient* pNetworkClient)
 	
 	while (pNetworkClient->GetInputUpdates(update))
 	{
-		const int p = update.playerNum;
+		const int playerNum = update.playerNum;
 	
 		if (update.tickNum < earliestUpdatedTick)
 			earliestUpdatedTick = update.tickNum;
-	
-		if (m_latestPlayerTickNumbers[p] < update.tickNum)
+
+		const int size = update.inputs.size();
+		for (int i = 0; i < size; ++i)
 		{
-			m_gamesStates.GetAt(update.tickNum)->playerInputs[p] = update.inputs;
+			const CPlayerInput playerInput = update.inputs[i];
+
+			m_gamesStates.GetAt(update.tickNum + i)->playerInputs[playerNum] = playerInput;
 		}
-		m_latestPlayerTickNumbers[p] = update.tickNum;
+
+		m_latestPlayerTickNumbers[playerNum] = update.tickNum;
 	}
 	
 	if (earliestUpdatedTick == INT_MAX)

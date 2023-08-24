@@ -196,5 +196,5 @@ struct STickInput
 {
 	int playerNum;
 	int tickNum;
-	CPlayerInput inputs;
+	std::vector<CPlayerInput> inputs;
 };

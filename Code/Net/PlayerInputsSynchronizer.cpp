@@ -9,12 +9,11 @@ void CPlayerInputsSynchronizer::Enqueue(int tickNum, const CPlayerInput &playerI
 
 void CPlayerInputsSynchronizer::Ack(const OptInt ack)
 {
-	m_lastTickAcked.I = ack.I;
+	m_lastTickAcked = ack;
 }
 
-bool CPlayerInputsSynchronizer::GetPaket(flatbuffers::FlatBufferBuilder& builder, OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>& synchronizer)
+ bool CPlayerInputsSynchronizer::GetPaket(flatbuffers::FlatBufferBuilder& builder, OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>& synchronizer, const OptInt* lastTickAcked)
 {
-
 	if(!m_tickNum.has_value())
 	{
 		const FlatBuffPacket::OptInt optInt(m_tickNum.I);
@@ -22,37 +21,38 @@ bool CPlayerInputsSynchronizer::GetPaket(flatbuffers::FlatBufferBuilder& builder
 		return true;
 	}
 
-	const int firstTickToSend = m_lastTickAcked.has_value() ? m_lastTickAcked.value() + 1 : 0;
-	const int lastTickToSend = m_tickNum.value();
-	const int count = (lastTickToSend - firstTickToSend) + 1;
+	if (lastTickAcked == nullptr)
+		lastTickAcked = &m_lastTickAcked;
 
-	if (count > MAX_TICKS_TO_TRANSMIT)
+	const int firstTickToSend = lastTickAcked->has_value() ? lastTickAcked->value() + 1 : 0;
+	const int lastTickToSend = m_tickNum.value();
+	int count;
+
+	if (firstTickToSend <= lastTickToSend)
 	{
-		gEnv->pLog->LogToFile("Attempted Send %i inputs but max is %i", count, MAX_TICKS_TO_TRANSMIT);
-		return false;
+		count = (lastTickToSend - firstTickToSend) + 1;
+		if (count > MAX_TICKS_TO_TRANSMIT)
+		{
+			gEnv->pLog->LogToFile("Attempted Send %i inputs but max is %i", count, MAX_TICKS_TO_TRANSMIT);
+			return false;
+		}
+	}
+	else
+	{
+		gEnv->pLog->LogToFile("Attempted Send ticks from firstTickToSend %i to lastTickToSend %i, but firstTickToSend > lastTickToSend", firstTickToSend, lastTickToSend);
+		count = 0;
 	}
 
-	// packet->packet.TickNum.I = lastTickToSend;
-	// packet->packet.TickCount = count;	
-	//
-	// for (int i = 0; i < count; ++i)
-	// {
-	// 	packet->packet.Inputs[i] = *(m_playerInputsBuffer.GetAt(firstTickToSend+i));
-	// }
 	FlatBuffPacket::PlayerInput playerInputs[MAX_TICKS_TO_TRANSMIT];
-	//std::vector<FlatBuffPacket::PlayerInput> playerInputs = std::vector<FlatBuffPacket::PlayerInput>(count);
 	
 	std::vector<flatbuffers::Offset<FlatBuffPacket::PlayerInput>> inputs;
 	for (int i = 0; i < count; ++i)
 	{
-		// packet->packet.Inputs[i] = *(m_playerInputsBuffer.GetAt(firstTickToSend + i));
-
 		const CPlayerInput* val = m_playerInputsBuffer.GetAt(firstTickToSend + i);
 
 		FlatBuffPacket::Vec2 mouseDelta = FlatBuffPacket::Vec2(val->mouseDelta.x, val->mouseDelta.y);
 		const FlatBuffPacket::InputFlags playerActions = static_cast<FlatBuffPacket::InputFlags>(static_cast<int8_t>(val->playerActions));
 		const FlatBuffPacket::PlayerInput playerInput = FlatBuffPacket::PlayerInput(mouseDelta, playerActions);
-		//playerInputs.push_back(playerInput);
 		playerInputs[i] = playerInput;
 	}
 	const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, count);
@@ -64,8 +64,7 @@ bool CPlayerInputsSynchronizer::GetPaket(flatbuffers::FlatBufferBuilder& builder
 
 void CPlayerInputsSynchronizer::UpdateFromPacket(const FlatBuffPacket::PlayerInputsSynchronizer* sync)
 {
-	std::tuple<int, int, std::vector<CPlayerInput>> tuple = ParsePaket(sync, m_lastTickAcked);
-	auto [firstTickNum, count, thing] = tuple;
+	auto [firstTickNum, count, thing] = ParsePaket(sync, m_lastTickAcked);
 	
 	for (int i = 0; i < count; ++i)
 	{
@@ -73,13 +72,14 @@ void CPlayerInputsSynchronizer::UpdateFromPacket(const FlatBuffPacket::PlayerInp
 	}
 }
 
-std::tuple<int, int, std::vector<CPlayerInput>> CPlayerInputsSynchronizer::ParsePaket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, AtomicOptInt& lastTickAcked)
+std::tuple<int, int, std::vector<CPlayerInput>> CPlayerInputsSynchronizer::ParsePaket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, OptInt& lastTickAcked)
 {
-	const OptInt tickCount(sync->tick_count());
-	if (!tickCount.has_value())
+	const OptInt tickNum(sync->tick_num()->i());
+	if (!tickNum.has_value())
 		return std::make_tuple(0, 0, std::vector<CPlayerInput>(0));
 
-	const int maxCount = tickCount.value();
+	const int maxCount = sync->tick_count();
+
 	if (maxCount > MAX_TICKS_TO_TRANSMIT)
 	{
 		gEnv->pLog->LogToFile("Attempted to receive %i inputs, which is more than MAX_TICKS_TO_TRANSMIT = %i", maxCount, MAX_TICKS_TO_TRANSMIT);
@@ -91,7 +91,7 @@ std::tuple<int, int, std::vector<CPlayerInput>> CPlayerInputsSynchronizer::Parse
 
 	int count = (lastTickToReceive - firstTickToReceive) + 1;
 
-	if (count > maxCount || count > sync->inputs()->size())
+	if (count > maxCount || (sync->inputs() != nullptr && count > sync->inputs()->size()))
 	{
 		LARGE_INTEGER t;
 		QueryPerformanceCounter(&t);

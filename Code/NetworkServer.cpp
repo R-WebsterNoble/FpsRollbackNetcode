@@ -90,8 +90,10 @@ int CNetUdpServer::Receive(char* buff, const int len, sockaddr_in* si_other)
 
 void CNetworkServer::UpdateServerData(const FlatBuffPacket::ClientToServerUpdate* clientToServerUpdate)
 {
-	m_playerInputsSynchronizers[0].UpdateFromPacket(clientToServerUpdate->player_1_synchronizer());
-	m_playerInputsSynchronizers[1].UpdateFromPacket(clientToServerUpdate->player_2_synchronizer());
+	for (int i = 0; i < NUM_PLAYERS; ++i)
+	{
+		m_playerInputsSynchronizers[i].UpdateFromPacket(clientToServerUpdate->player_synchronizers()->Get(i));
+	}
 	// size_t offset = 0;
 	// const char* buff = clientToServerUpdate.ticks.synchronizers[0].buff;
 	//
@@ -106,18 +108,19 @@ void CNetworkServer::UpdateServerData(const FlatBuffPacket::ClientToServerUpdate
 	// playerInputsSynchronizer.UpdateFromPacket(clientToServerUpdate.ticks.synchronizers[playerNumber].buff, synchronizerSize);
 }
 
-bool CNetworkServer::BuildResponsePacket(const char playerNumber, ServerToClientUpdateBytesUnion* packet, size_t& bytesWritten)
+bool CNetworkServer::BuildResponsePacket(flatbuffers::FlatBufferBuilder& builder, const FlatBuffPacket::ClientToServerUpdate* update, OUT flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate>& serverToClientUpdate)
 {
-	bytesWritten = 0;
-	// for (int i = 0; i < NUM_PLAYERS; ++i)
-	// {
-	// 	size_t size;
-	// 	if (!m_playerInputsSynchronizers[i].GetPaket(packet->ticks.synchronizersBytes + bytesWritten, size))
-	// 		return false;
-	//
-	// 	packet->ticks.synchronizerPacketSizes[i] = size;
-	// 	bytesWritten += size;
-	// }
+	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+	for (int i = 0; i < NUM_PLAYERS; ++i)
+	{
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> p1;
+		OptInt lastTickAcked(update->player_synchronizers()->Get(i)->tick_num()->i());
+		if (!m_playerInputsSynchronizers[0].GetPaket(builder, s[i], &lastTickAcked))
+			return false;
+	}
+	const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+	serverToClientUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, 0, playerSynchronizers);
+
 	return true;
 }
 
@@ -125,8 +128,8 @@ void CNetworkServer::DoWork()
 {
 	sockaddr_in si_other;
 
-	ClientToServerUpdateBytesUnion clientToServerUpdate;
-	char* recvBuffer = clientToServerUpdate.buff;
+	// ClientToServerUpdateBytesUnion clientToServerUpdate;
+	char recvBuffer[10000];
 
 
 	//CryLog("NetworkServer: Waiting for data...");
@@ -167,16 +170,17 @@ void CNetworkServer::DoWork()
 	}
 	else 
 	{
-		flatbuffers::Verifier verifier(reinterpret_cast<uint8_t*>(recvBuffer), len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		uint8_t* buffer = reinterpret_cast<uint8_t*>(recvBuffer);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
 		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
 		{
-			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(reinterpret_cast<uint8_t*>(recvBuffer));
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
 
-			const auto debugOut = flatbuffers::FlatBufferToString(reinterpret_cast<uint8_t*>(recvBuffer), FlatBuffPacket::ClientToServerUpdateTypeTable());
+			const auto debugOut = flatbuffers::FlatBufferToString(buffer, FlatBuffPacket::ClientToServerUpdateTypeTable());
 
 			LARGE_INTEGER t;
 			QueryPerformanceCounter(&t);
-			gEnv->pLog->LogToFile("NetworkServer: %llu Receive: %s int expectedLen = %i;", t.QuadPart, debugOut.c_str(), len);
+			gEnv->pLog->LogToFile("NetworkServer: %llu Receive: %s; int expectedLen = %i;", t.QuadPart, debugOut.c_str(), len);
 
 			// std::stringstream sb;
 			// sb << clientToServerUpdate.ticks;
@@ -184,9 +188,27 @@ void CNetworkServer::DoWork()
 			// QueryPerformanceCounter(&t);
 			// gEnv->pLog->LogToFile("NetworkServer: %llu Receive: %s int expectedLen = %i;", t.QuadPart, sb.str().c_str(), len);
 
-			const char playerNumber = clientToServerUpdate.ticks.playerNum;
+			// const char playerNumber = clientToServerUpdate.ticks.playerNum;
 
 			UpdateServerData(update);
+
+
+			flatbuffers::FlatBufferBuilder builder;
+
+			flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate;
+
+			BuildResponsePacket(builder, update, serverToClientUpdate);
+
+			builder.Finish(serverToClientUpdate);
+			uint8_t* bufferPointer = builder.GetBufferPointer();
+
+			const flatbuffers::FlatBufferBuilder::SizeT len2 = builder.GetSize();
+			m_networkServerUdp->Send(reinterpret_cast<char*>(bufferPointer), len2, &si_other);
+
+			const auto debugOut2 = flatbuffers::FlatBufferToString(bufferPointer, FlatBuffPacket::ClientToServerUpdateTypeTable());
+			
+			QueryPerformanceCounter(&t);
+			gEnv->pLog->LogToFile("NetworkServer: %llu Sending: %s; int expectedLen = %zu;", t.QuadPart, debugOut2.c_str(), len2);
 
 
 			// ServerToClientUpdate serverToClientUpdate;

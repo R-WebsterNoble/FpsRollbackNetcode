@@ -25,12 +25,16 @@ class CPlayerInputsSynchronizer
 public:
 	void Enqueue(int tickNum, const CPlayerInput &playerInput);
     void Ack(OptInt ack);
-	bool GetPaket(flatbuffers::FlatBufferBuilder& builder, OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>& synchronizer);
+	bool GetPaket(flatbuffers::FlatBufferBuilder& builder,
+	              OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>&
+	              synchronizer,
+	              const OptInt* lastTickAcked = nullptr);
     void UpdateFromPacket(const FlatBuffPacket::PlayerInputsSynchronizer* sync);
-    static std::tuple<int, int, std::vector<CPlayerInput>> ParsePaket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, AtomicOptInt& lastTickAcked);
+    OptInt& GetLastTickAcked() { return m_lastTickAcked; };
+	static std::tuple<int, int, std::vector<CPlayerInput>> ParsePaket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, OptInt& lastTickAcked);
 
 private:
-	AtomicOptInt m_lastTickAcked;
+	OptInt m_lastTickAcked;
 	OptInt m_tickNum;
 	RingBuffer<CPlayerInput> m_playerInputsBuffer = RingBuffer<CPlayerInput>();
 };
