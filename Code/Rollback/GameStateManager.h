@@ -14,12 +14,11 @@ class CGameStateManager : CGameStateManagerInterface
 {
 public:
 
-	CGameStateManager()
+	CGameStateManager(float ticksPerSecond)
 	{
-		constexpr float TICKS_PER_SECOND = 1.0f;// 128.0f;
 		constexpr float MAX_ROLLBACK_TIME = 500.0f;
 
-		m_tickDuration = 1.0f / TICKS_PER_SECOND;
+		m_tickDuration = 1.0f / ticksPerSecond;
 		m_maxRollbackTime = MAX_ROLLBACK_TIME;
 
 		m_maxRollbackTicks = static_cast<int>(floor(MAX_ROLLBACK_TIME / m_tickDuration));

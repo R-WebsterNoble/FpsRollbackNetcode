@@ -14,18 +14,19 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
-#include "Net/PlayerInputsSynchronizer.h"
 
-//#define test
+// #define test
 
 #ifdef test
+
+#include "Net/PlayerInputsSynchronizer.h"
 
 class CTestNetUdp : public CNetUdpClientInterface, public CNetUdpServerInterface
 {
 private:
-	std::function<void(const char*, int)> m_clientSendCallback = nullptr;
+	std::function<void(char*, int)> m_clientSendCallback = nullptr;
 	std::function<int(char* buff, int len)> m_clientReceiveCallback = nullptr;
-	std::function<void(const char* buff, int len, sockaddr_in* to)> m_serverSendCallback = nullptr;
+	std::function<void(char* buff, int len, sockaddr_in* to)> m_serverSendCallback = nullptr;
 	std::function<int(char* buff, int len, sockaddr_in* si_other)> m_serverReceiveCallback = nullptr;
 	int m_expectedNextCallback = 0;
 	int m_expectedCallbackSequenceNumber = 0;
@@ -33,7 +34,7 @@ private:
 
 public:
 
-	void Send(const char* buff, int len) override
+	void Send(char* buff, int len) override
 	{
 		if (m_expectedNextCallback != 1 || m_expectedCallbackSequenceNumber != m_actualCallbackSequenceNumber)
 			CryFatalError("Test Callback called in incorrect order");
@@ -53,7 +54,7 @@ public:
 		return m_clientReceiveCallback(buff, len);
 	}
 
-	void Send(const char* buff, int len, sockaddr_in* to) override
+	void Send(char* buff, int len, sockaddr_in* to) override
 	{
 		if (m_expectedNextCallback != 3 || m_expectedCallbackSequenceNumber != m_actualCallbackSequenceNumber)
 			CryFatalError("Test Callback called in incorrect order");
@@ -78,7 +79,7 @@ public:
 	}
 
 
-	void SetClientSendCallback(int n, const std::function<void(const char*, int)>& callback)
+	void SetClientSendCallback(int n, const std::function<void(char*, int)>& callback)
 	{
 		m_expectedCallbackSequenceNumber = n;
 		m_expectedNextCallback = 1;
@@ -92,7 +93,7 @@ public:
 		m_clientReceiveCallback = callback;
 	}
 
-	void SetServerCallbacks(int n, const std::function<int(char* buff, int len, sockaddr_in* si_other)>& receiveCallback, const std::function<void(const char* buff, int len, sockaddr_in* to)>& sendCallback)
+	void SetServerCallbacks(int n, const std::function<int(char* buff, int len, sockaddr_in* si_other)>& receiveCallback, const std::function<void(char* buff, int len, sockaddr_in* to)>& sendCallback)
 	{
 		m_expectedCallbackSequenceNumber = n;
 		m_expectedNextCallback = 4;
@@ -116,9 +117,9 @@ void Test1()
 
 	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
 
-	CGameStateManager gameStateManager = CGameStateManager();
+	CGameStateManager gameStateManager = CGameStateManager(1.0f);
 
-	testNetUdp.SetClientSendCallback(1, [](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
 	{
 		constexpr char c[2] = { 'c', '\0' };
 		if (len != sizeof c || memcmp(buff, c, sizeof c) != 0)
@@ -151,7 +152,7 @@ void Test1()
 	networkClient.DoWork();
 
 
-	testNetUdp.SetClientSendCallback(4, [](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(4, [](char* buff, int len) -> void
 	{
 		ClientToServerUpdateBytesUnion packet;
 		packet.ticks.packetTypeCode = 't';
@@ -205,9 +206,9 @@ void Test2()
 
 	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
 
-	CGameStateManager gameStateManager = CGameStateManager();
+	CGameStateManager gameStateManager = CGameStateManager(1.0f);
 
-	testNetUdp.SetClientSendCallback(1, [](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
 	{
 		constexpr char c[2] = { 'c', '\0' };
 		if (len != sizeof c || memcmp(buff, c, sizeof c) != 0)
@@ -239,7 +240,7 @@ void Test2()
 	networkClient.DoWork();
 
 
-	testNetUdp.SetClientSendCallback(4, [](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(4, [](char* buff, int len) -> void
 	{
 		ClientToServerUpdateBytesUnion packet;
 		packet.ticks.packetTypeCode = 't';
@@ -265,7 +266,7 @@ void Test2()
 	gameStateManager.Update(0, t, playerInput, &networkClient, gs);
 
 
-	testNetUdp.SetClientSendCallback(5, [](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(5, [](char* buff, int len) -> void
 	{
 		ClientToServerUpdateBytesUnion packet;
 		packet.ticks.packetTypeCode = 't';
@@ -330,7 +331,7 @@ void Test2()
 	networkClient.DoWork();
 
 
-	testNetUdp.SetClientSendCallback(8, [](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(8, [](char* buff, int len) -> void
 	{
 		ClientToServerUpdateBytesUnion packet;
 		packet.ticks.packetTypeCode = 't';
@@ -372,8 +373,8 @@ void Test3()
 	CNetworkClient networkClient2 = CNetworkClient(&testNetUdp);
 
 
-	CGameStateManager Client1gameStateManager = CGameStateManager();
-	CGameStateManager Client2gameStateManager = CGameStateManager();
+	CGameStateManager Client1gameStateManager = CGameStateManager(1.0f);
+	CGameStateManager Client2gameStateManager = CGameStateManager(1.0f);
 	ClientToServerUpdateBytesUnion u;
 	char* client1TestPacketBuffer = u.buff;
 	int client1TestPacketBufferLength = 0;
@@ -419,11 +420,11 @@ void Test3()
 
 
 	testNetUdp.SetClientSendCallback(
-		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
-	{
-		client1TestPacketBufferLength = len;
-		memcpy(client1TestPacketBuffer, buff, len);
-	});
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
 	pi.mouseDelta = Vec2(0.0f, 0.0f);
 	pi.playerActions = EInputFlag::None;
 	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
@@ -434,7 +435,7 @@ void Test3()
 	{
 		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
 		return client1TestPacketBufferLength;
-	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client1TestPacketBufferLength = len;
 		memcpy(client1TestPacketBuffer, buff, len);
@@ -443,11 +444,11 @@ void Test3()
 	sn++;
 
 	testNetUdp.SetClientSendCallback(
-		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
-	{
-		client1TestPacketBufferLength = len;
-		memcpy(client1TestPacketBuffer, buff, len);
-	});
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
 	pi.mouseDelta = Vec2(1.0f, 0.0f);
 	pi.playerActions = EInputFlag::None;
 	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
@@ -458,7 +459,7 @@ void Test3()
 	{
 		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
 		return client1TestPacketBufferLength;
-	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client1TestPacketBufferLength = len;
 		memcpy(client1TestPacketBuffer, buff, len);
@@ -474,11 +475,11 @@ void Test3()
 	networkClient1.DoWork();
 
 	testNetUdp.SetClientSendCallback(
-		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
-	{
-		client1TestPacketBufferLength = len;
-		memcpy(client1TestPacketBuffer, buff, len);
-	});
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
 	pi.mouseDelta = Vec2(1.0f, 0.0f);
 	pi.playerActions = EInputFlag::None;
 	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
@@ -487,7 +488,7 @@ void Test3()
 	{
 		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
 		return client1TestPacketBufferLength;
-	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client1TestPacketBufferLength = len;
 		memcpy(client1TestPacketBuffer, buff, len);
@@ -502,7 +503,7 @@ void Test3()
 	});
 	networkClient1.DoWork();
 
-	testNetUdp.SetClientSendCallback(sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](char* buff, int len) -> void
 	{
 		client2TestPacketBufferLength = len;
 		memcpy(client2TestPacketBuffer, buff, len);
@@ -515,7 +516,7 @@ void Test3()
 	{
 		memcpy(buff, client2TestPacketBuffer, client2TestPacketBufferLength);
 		return client2TestPacketBufferLength;
-	}, [&client2TestPacketBuffer, &client2TestPacketBufferLength](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client2TestPacketBuffer, &client2TestPacketBufferLength](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client2TestPacketBufferLength = len;
 		memcpy(client2TestPacketBuffer, buff, len);
@@ -524,7 +525,7 @@ void Test3()
 
 }
 
-void Test3()
+void Test4()
 {
 	constexpr float TICKS_PER_SECOND = 1.0f;//128.0f;
 	constexpr float t = 1.0f / TICKS_PER_SECOND;
@@ -539,8 +540,8 @@ void Test3()
 	CNetworkClient networkClient2 = CNetworkClient(&testNetUdp);
 
 
-	CGameStateManager Client1gameStateManager = CGameStateManager();
-	CGameStateManager Client2gameStateManager = CGameStateManager();
+	CGameStateManager Client1gameStateManager = CGameStateManager(1.0f);
+	CGameStateManager Client2gameStateManager = CGameStateManager(1.0f);
 	ClientToServerUpdateBytesUnion u;
 	char* client1TestPacketBuffer = u.buff;
 	int client1TestPacketBufferLength = 0;
@@ -586,11 +587,11 @@ void Test3()
 
 
 	testNetUdp.SetClientSendCallback(
-		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
-	{
-		client1TestPacketBufferLength = len;
-		memcpy(client1TestPacketBuffer, buff, len);
-	});
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
 	pi.mouseDelta = Vec2(0.0f, 0.0f);
 	pi.playerActions = EInputFlag::None;
 	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
@@ -601,7 +602,7 @@ void Test3()
 	{
 		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
 		return client1TestPacketBufferLength;
-	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client1TestPacketBufferLength = len;
 		memcpy(client1TestPacketBuffer, buff, len);
@@ -610,11 +611,11 @@ void Test3()
 	sn++;
 
 	testNetUdp.SetClientSendCallback(
-		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
-	{
-		client1TestPacketBufferLength = len;
-		memcpy(client1TestPacketBuffer, buff, len);
-	});
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
 	pi.mouseDelta = Vec2(1.0f, 0.0f);
 	pi.playerActions = EInputFlag::None;
 	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
@@ -625,7 +626,7 @@ void Test3()
 	{
 		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
 		return client1TestPacketBufferLength;
-	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client1TestPacketBufferLength = len;
 		memcpy(client1TestPacketBuffer, buff, len);
@@ -641,11 +642,11 @@ void Test3()
 	networkClient1.DoWork();
 
 	testNetUdp.SetClientSendCallback(
-		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len) -> void
-	{
-		client1TestPacketBufferLength = len;
-		memcpy(client1TestPacketBuffer, buff, len);
-	});
+		sn++, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len) -> void
+		{
+			client1TestPacketBufferLength = len;
+			memcpy(client1TestPacketBuffer, buff, len);
+		});
 	pi.mouseDelta = Vec2(1.0f, 0.0f);
 	pi.playerActions = EInputFlag::None;
 	Client1gameStateManager.Update(0, t, pi, &networkClient1, gs);
@@ -654,7 +655,7 @@ void Test3()
 	{
 		memcpy(buff, client1TestPacketBuffer, client1TestPacketBufferLength);
 		return client1TestPacketBufferLength;
-	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client1TestPacketBufferLength, &client1TestPacketBuffer](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client1TestPacketBufferLength = len;
 		memcpy(client1TestPacketBuffer, buff, len);
@@ -669,7 +670,7 @@ void Test3()
 	});
 	networkClient1.DoWork();
 
-	testNetUdp.SetClientSendCallback(sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](const char* buff, int len) -> void
+	testNetUdp.SetClientSendCallback(sn++, [&client2TestPacketBufferLength, &client2TestPacketBuffer](char* buff, int len) -> void
 	{
 		client2TestPacketBufferLength = len;
 		memcpy(client2TestPacketBuffer, buff, len);
@@ -682,7 +683,7 @@ void Test3()
 	{
 		memcpy(buff, client2TestPacketBuffer, client2TestPacketBufferLength);
 		return client2TestPacketBufferLength;
-	}, [&client2TestPacketBuffer, &client2TestPacketBufferLength](const char* buff, int len, sockaddr_in* to) -> void
+	}, [&client2TestPacketBuffer, &client2TestPacketBufferLength](char* buff, int len, sockaddr_in* to) -> void
 	{
 		client2TestPacketBufferLength = len;
 		memcpy(client2TestPacketBuffer, buff, len);
@@ -695,7 +696,7 @@ const FlatBuffPacket::PlayerInputsSynchronizer* SerializeAndDeserialize(flatbuff
 {
 	const flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> synchronizers[1] = { synchronizer };
 	const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> synchronizersVector = builder.CreateVector(synchronizers, 1);
-	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = CreateClientToServerUpdate(builder, 0, synchronizersVector);
+	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = CreateClientToServerUpdate(builder, synchronizersVector);
 	builder.Finish(clientToServerUpdate);
 	const uint8_t* bufferPointer = builder.GetBufferPointer();
 	flatbuffers::Verifier verifier(bufferPointer, builder.GetSize(), 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
@@ -788,7 +789,6 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndAlreadyAckedReceive()
 
 	flatbuffers::FlatBufferBuilder builder;
 	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> synchronizer;
-
 
 	s.Enqueue(0, CPlayerInput{ {0.1f, 0.0f}, EInputFlag::MoveForward });
 	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
@@ -883,9 +883,9 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesTooManyTicks()
 	CPlayerInputsSynchronizer s = CPlayerInputsSynchronizer();
 
 	flatbuffers::FlatBufferBuilder builder;
-	const FlatBuffPacket::OptInt optIntFb{};
+	const FlatBuffPacket::OInt optIntFb{};
 
-	const flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> synchronizer = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &optIntFb, MAX_TICKS_TO_TRANSMIT + 1);
+	const flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> synchronizer = CreatePlayerInputsSynchronizer(builder, &optIntFb);
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 
 	OptInt optInt{ };
@@ -970,6 +970,795 @@ void TestPlayerInputsSynchronizer()
 	
 }
 
+void TestGameStateManagerCreatesNoInputsForShortFrame()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+
+	gsm.Update(0, 0.5f, pi, &networkClient, gs);
+}
+
+void TestGameStateManagerSendsSingleInput()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 1);
+			const FlatBuffPacket::PlayerInput* playerInput = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput->mouse_delta().x(), 1.0f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+
+
+	gsm.Update(0, 1.0f, pi, &networkClient, gs);
+}
+
+void TestGameStateManagerCreatesMultipleInputs()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 1);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 2);
+			const FlatBuffPacket::PlayerInput* playerInput1 = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput1->mouse_delta().x(), 0.5f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput1->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+			const FlatBuffPacket::PlayerInput* playerInput2 = playerInputs->Get(1);
+			CRY_TEST_CHECK_CLOSE(playerInput2->mouse_delta().x(), 0.5f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput2->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+
+
+	gsm.Update(0, 2.0f, pi, &networkClient, gs);
+}
+
+void TestGameStateManagerCreatesMultipleInputsWithMisalignedTick()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 1);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 2);
+			const FlatBuffPacket::PlayerInput* playerInput1 = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput1->mouse_delta().x(), 0.4f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput1->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+			const FlatBuffPacket::PlayerInput* playerInput2 = playerInputs->Get(1);
+			CRY_TEST_CHECK_CLOSE(playerInput2->mouse_delta().x(), 0.4f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput2->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+
+
+	gsm.Update(0, 2.5f, pi, &networkClient, gs);
+
+
+	testNetUdp.SetClientSendCallback(2, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 2);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 3);
+			const FlatBuffPacket::PlayerInput* playerInput1 = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput1->mouse_delta().x(), 0.4f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput1->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+			const FlatBuffPacket::PlayerInput* playerInput2 = playerInputs->Get(1);
+			CRY_TEST_CHECK_CLOSE(playerInput2->mouse_delta().x(), 0.4f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput2->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+			const FlatBuffPacket::PlayerInput* playerInput3 = playerInputs->Get(2);
+			CRY_TEST_CHECK_CLOSE(playerInput3->mouse_delta().x(), 2.2f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput3->player_actions(), FlatBuffPacket::InputFlags_MoveBackward);
+		}
+	});
+
+
+	CPlayerInput pi2{ Vec2{2.0f, 0.0f}, EInputFlag::MoveBackward };
+	gsm.Update(0, 0.5f, pi2, &networkClient, gs);
+
+
+	gsm.Update(0, 0.01f, pi2, &networkClient, gs);
+}
+
+void TestGameStateManagerCreatesHandlesAck()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+	
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+	
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+	
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 1);
+			const FlatBuffPacket::PlayerInput* playerInput = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput->mouse_delta().x(), 1.0f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+	
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+	
+	gsm.Update(0, 1.0f, pi, &networkClient, gs);
+
+	testNetUdp.SetClientReceiveCallback(2, [](char* buff, int len) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+		
+
+		for (int i = 0; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::OInt noTicks = FlatBuffPacket::OInt(i == 0 ? 0 : OptInt().I);		
+			
+			s[i] = CreatePlayerInputsSynchronizer(builder, &noTicks, 0);
+		}
+		
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	});
+	networkClient.DoWork();
+
+	
+	testNetUdp.SetClientSendCallback(3, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 1);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 1);
+			const FlatBuffPacket::PlayerInput* playerInput = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput->mouse_delta().x(), 2.0f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+	
+	const CPlayerInput pi2 = CPlayerInput{ Vec2{2.0f, 0.0f}, EInputFlag::MoveForward };
+	
+	
+	gsm.Update(0, 1.0f, pi2, &networkClient, gs);
+}
+
+void TestGameStateManagerHandlesOtherPlayerInputs()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 1);
+			const FlatBuffPacket::PlayerInput* playerInput = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput->mouse_delta().x(), 1.0f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+
+	gsm.Update(0, 1.0f, pi, &networkClient, gs);
+
+	testNetUdp.SetClientReceiveCallback(2, [](char* buff, int len) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+		s[0] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &tickNum, 0);
+
+	
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(2.0f, 2.0f), FlatBuffPacket::InputFlags_MoveForward} };
+			const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+			s[i] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	});
+	networkClient.DoWork();
+
+
+	STickInput tickInput;
+	for (int i = 1; i < NUM_PLAYERS; ++i)
+	{
+		networkClient.GetInputUpdates(tickInput);
+
+		CRY_TEST_CHECK_EQUAL(tickInput.tickNum, 0);
+		CRY_TEST_CHECK_EQUAL(tickInput.playerNum, 1);
+		CRY_TEST_CHECK_CLOSE(tickInput.inputs.at(0).mouseDelta.x, 2.0f, 0.001f);
+	}
+
+	CRY_TEST_CHECK_EQUAL(networkClient.GetInputUpdates(tickInput), false);
+}
+
+
+void TestGameStateManagerHandlesOtherPlayerInputsAcked()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 1);
+			const FlatBuffPacket::PlayerInput* playerInput = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput->mouse_delta().x(), 1.0f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+
+	gsm.Update(0, 1.0f, pi, &networkClient, gs);
+
+	testNetUdp.SetClientReceiveCallback(2, [](char* buff, int len) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+		s[0] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &tickNum, 0);
+
+
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(2.0f, 2.0f), FlatBuffPacket::InputFlags_MoveForward} };
+			const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+			s[i] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	});
+	networkClient.DoWork();
+
+	testNetUdp.SetClientReceiveCallback(3, [](char* buff, int len) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+		s[0] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &tickNum, 0);
+
+
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(2.0f, 2.0f), FlatBuffPacket::InputFlags_MoveForward} };
+			const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+			s[i] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	});
+	networkClient.DoWork();
+
+
+	STickInput tickInput;
+	for (int i = 1; i < NUM_PLAYERS; ++i)
+	{
+		networkClient.GetInputUpdates(tickInput);
+
+		CRY_TEST_CHECK_EQUAL(tickInput.tickNum, 0);
+		CRY_TEST_CHECK_EQUAL(tickInput.playerNum, 1);
+		CRY_TEST_CHECK_CLOSE(tickInput.inputs.at(0).mouseDelta.x, 2.0f, 0.001f);
+	}
+
+	CRY_TEST_CHECK_EQUAL(networkClient.GetInputUpdates(tickInput), false);
+}
+
+void TestGameStateManagerHandlesMoreOtherPlayerInputsAfterAck()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkClient networkClient = CNetworkClient(&testNetUdp);
+
+	CGameState gs;
+	CGameStateManager gsm = CGameStateManager(1.0f);
+
+	testNetUdp.SetClientSendCallback(1, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 1);
+			const FlatBuffPacket::PlayerInput* playerInput = playerInputs->Get(0);
+			CRY_TEST_CHECK_CLOSE(playerInput->mouse_delta().x(), 1.0f, 0.001f);
+			CRY_TEST_CHECK_EQUAL(playerInput->player_actions(), FlatBuffPacket::InputFlags_MoveForward);
+		}
+	});
+
+	CPlayerInput pi = CPlayerInput{ Vec2{1.0f, 0.0f}, EInputFlag::MoveForward };
+
+	gsm.Update(0, 1.0f, pi, &networkClient, gs);
+
+	testNetUdp.SetClientReceiveCallback(2, [](char* buff, int len) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+		s[0] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &tickNum, 0);
+
+
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(2.0f, 2.0f), FlatBuffPacket::InputFlags_MoveForward} };
+			const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+			s[i] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	});
+	networkClient.DoWork();
+
+	STickInput tickInput;
+	for (int i = 1; i < NUM_PLAYERS; ++i)
+	{
+		networkClient.GetInputUpdates(tickInput);
+
+		CRY_TEST_CHECK_EQUAL(tickInput.tickNum, 0);
+		CRY_TEST_CHECK_EQUAL(tickInput.playerNum, i);
+		CRY_TEST_CHECK_CLOSE(tickInput.inputs.at(0).mouseDelta.x, 2.0f, 0.001f);
+	}
+
+	CRY_TEST_CHECK_EQUAL(networkClient.GetInputUpdates(tickInput), false);
+
+	testNetUdp.SetClientReceiveCallback(3, [](char* buff, int len) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(1);
+		s[0] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &tickNum, 0);
+
+
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(3.0f, 0.0f), FlatBuffPacket::InputFlags_MoveBackward} };
+			const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+			s[i] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	});
+	networkClient.DoWork();
+	
+	for (int i = 1; i < NUM_PLAYERS; ++i)
+	{
+		networkClient.GetInputUpdates(tickInput);
+
+		CRY_TEST_CHECK_EQUAL(tickInput.tickNum, 1);
+		CRY_TEST_CHECK_EQUAL(tickInput.playerNum, i);
+		CRY_TEST_CHECK_CLOSE(tickInput.inputs.at(0).mouseDelta.x, 3.0f, 0.001f);
+	}
+
+	CRY_TEST_CHECK_EQUAL(networkClient.GetInputUpdates(tickInput), false);
+}
+
+void TestGameStateManager()
+{
+	TestGameStateManagerCreatesNoInputsForShortFrame();
+	TestGameStateManagerSendsSingleInput();
+	TestGameStateManagerCreatesMultipleInputs();
+	TestGameStateManagerCreatesMultipleInputsWithMisalignedTick();
+	TestGameStateManagerCreatesHandlesAck();
+	TestGameStateManagerHandlesOtherPlayerInputs();
+	TestGameStateManagerHandlesOtherPlayerInputsAcked();
+	TestGameStateManagerHandlesMoreOtherPlayerInputsAfterAck();
+}
+
+
+void TestNetworkServerHandlesFirstPacket()
+{	
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkServer networkServer = CNetworkServer(&testNetUdp);
+
+	int sn = 1;
+
+	testNetUdp.SetServerCallbacks(
+		sn++, [](char* buff, int len, sockaddr_in* si_other) -> int
+		{
+			flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+			flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+			
+			const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+
+			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(1.0f, 0.0f), FlatBuffPacket::InputFlags_MoveBackward} };
+			const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+			s[0] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+
+			for (int i = 1; i < NUM_PLAYERS; ++i)
+			{
+				const FlatBuffPacket::OInt noTickNum = FlatBuffPacket::OInt(OptInt().I);
+				s[i] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &noTickNum, 0);
+			}
+
+			const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+			const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+			builder.Finish(serverToClientUpdate);
+			const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+			len = builder.GetSize();
+			memcpy(buff, bufferPointer, len);
+			return len;
+		}, [](char* buff, int len,
+		      sockaddr_in* to) -> void
+		{
+			const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+			flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+			if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+			{
+				const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+				const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+				CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+				const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+				CRY_TEST_CHECK_EQUAL(playerInputs->size(), 0);
+			}
+		});
+	networkServer.DoWork();
+}
+
+void TestNetworkServerHandlesFirstTwoPackets()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkServer networkServer = CNetworkServer(&testNetUdp);
+
+	int sn = 1;
+
+	testNetUdp.SetServerCallbacks(
+		sn++, [](char* buff, int len, sockaddr_in* si_other) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+
+		const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(1.0f, 0.0f), FlatBuffPacket::InputFlags_MoveBackward} };
+		const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+		s[0] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::OInt noTickNum = FlatBuffPacket::OInt(OptInt().I);
+			s[i] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &noTickNum, 0);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	}, [](char* buff, int len,
+		sockaddr_in* to) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 0);
+		}
+	});
+	networkServer.DoWork();
+
+	testNetUdp.SetServerCallbacks(
+		(++sn)++, [](char* buff, int len, sockaddr_in* si_other) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(1);
+
+		const FlatBuffPacket::PlayerInput playerInputs[] = {
+			FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(1.0f, 0.0f), FlatBuffPacket::InputFlags_MoveBackward},
+			FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(2.0f, 0.0f), FlatBuffPacket::InputFlags_MoveBackward}
+		};
+		const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+		s[0] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::OInt noTickNum = FlatBuffPacket::OInt(OptInt().I);
+			s[i] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &noTickNum, 0);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	}, [](char* buff, int len,
+		sockaddr_in* to) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 1);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 0);
+		}
+	});
+	networkServer.DoWork();
+}
+
+void TestNetworkServerHandlesPacketsFromTwoPlayers()
+{
+	CTestNetUdp testNetUdp = CTestNetUdp();
+
+	CNetworkServer networkServer = CNetworkServer(&testNetUdp);
+
+	int sn = 1;
+
+	testNetUdp.SetServerCallbacks(
+		sn++, [](char* buff, int len, sockaddr_in* si_other) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+
+		const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(1.0f, 0.0f), FlatBuffPacket::InputFlags_MoveBackward} };
+		const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+		s[0] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+
+		for (int i = 1; i < NUM_PLAYERS; ++i)
+		{
+			const FlatBuffPacket::OInt noTickNum = FlatBuffPacket::OInt(OptInt().I);
+			s[i] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &noTickNum, 0);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	}, [](char* buff, int len,
+		sockaddr_in* to) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 0);
+		}
+	});
+	networkServer.DoWork();
+
+	testNetUdp.SetServerCallbacks(
+		(++sn)++, [](char* buff, int len, sockaddr_in* si_other) -> int
+	{
+		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
+
+		const FlatBuffPacket::OInt tickNum = FlatBuffPacket::OInt(0);
+
+		const FlatBuffPacket::PlayerInput playerInputs[] = {FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(101.0f, 0.0f), FlatBuffPacket::InputFlags_MoveBackward}};
+		const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
+		s[1] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
+
+		for (int i = 0; i < NUM_PLAYERS; ++i)
+		{
+			if(i == 1)
+				continue;
+
+			const FlatBuffPacket::OInt noTickNum = FlatBuffPacket::OInt(OptInt().I);
+			s[i] = FlatBuffPacket::CreatePlayerInputsSynchronizer(builder, &noTickNum, 0);
+		}
+
+		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+
+		builder.Finish(serverToClientUpdate);
+		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		len = builder.GetSize();
+		memcpy(buff, bufferPointer, len);
+		return len;
+	}, [](char* buff, int len,
+		sockaddr_in* to) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type player0InputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(player0InputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* player0Inputs = player0InputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(player0Inputs->size(), 1);
+			CRY_TEST_CHECK_CLOSE(player0Inputs->Get(0)->mouse_delta().x(), 1.0f, 0.001f);
+
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type player1InputsSynchronizer = update->player_synchronizers()->Get(1);
+			CRY_TEST_CHECK_EQUAL(player1InputsSynchronizer->tick_num()->i(), 0);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* player1Inputs = player1InputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(player1Inputs->size(), 0);
+		}
+	});
+	networkServer.DoWork();
+}
+
+void TestNetworkServer()
+{
+	TestNetworkServerHandlesFirstPacket();
+	TestNetworkServerHandlesFirstTwoPackets();
+	TestNetworkServerHandlesPacketsFromTwoPlayers();
+}
 
 #endif
 
@@ -985,18 +1774,20 @@ CGamePlugin::~CGamePlugin()
 
 	if (gEnv->pSchematyc)
 	{
-		gEnv->pSchematyc->GetEnvRegistry().DeregisterPackage(CGamePlugin::GetCID());
+		gEnv->pSchematyc->GetEnvRegistry().DeregisterPackage(GetCID());
 	}
 }
 
 bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitParams& initParams)
 {
 #ifdef test
-
-	//Test1();
-	//Test2();
-	Test3();
-	TestPlayerInputsSynchronizer();
+	//
+	// Test1();
+	// Test2();
+	 Test3();
+	 TestPlayerInputsSynchronizer();
+	TestGameStateManager();
+	TestNetworkServer();
 
 	gEnv->pLog->FlushAndClose();
 	gEnv->pSystem->Quit();
@@ -1194,7 +1985,7 @@ void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lp
 		{
 			gEnv->pSchematyc->GetEnvRegistry().RegisterPackage(
 				stl::make_unique<Schematyc::CEnvPackage>(
-					CGamePlugin::GetCID(),
+					GetCID(),
 					"EntityComponents",
 					"Crytek GmbH",
 					"Components",

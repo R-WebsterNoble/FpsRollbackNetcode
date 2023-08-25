@@ -7,7 +7,7 @@
 #include "lib/readerwritercircularbuffer.h"
 #include "Rollback/GameState.h"
 
-struct PlayerInputsSynchronizerPacket
+struct CPlayerInputsSynchronizerPacket
 {
 	OptInt TickNum;
 	int TickCount = 0;
@@ -16,7 +16,7 @@ struct PlayerInputsSynchronizerPacket
 
 union PlayerInputsSynchronizerPacketBytesUnion
 {
-	PlayerInputsSynchronizerPacket packet;
+	CPlayerInputsSynchronizerPacket packet;
 	char buff[sizeof packet] = { 0 };
 };
 
@@ -40,11 +40,11 @@ private:
 };
 
 
-inline std::ostream& operator<<(std::ostream& out, PlayerInputsSynchronizerPacket const& rhs)
+inline std::ostream& operator<<(std::ostream& out, CPlayerInputsSynchronizerPacket const& rhs)
 {
-    //ClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
+    //CClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
     /*packetTypeCode*/
-    out << "PlayerInputsSynchronizerPacket{ ";
+    out << "CPlayerInputsSynchronizerPacket{ ";
     out << "/*TickNum*/ " << rhs.TickNum << ", "
         << "/*TickCount*/ " << rhs.TickCount << ", "
         << "{ ";

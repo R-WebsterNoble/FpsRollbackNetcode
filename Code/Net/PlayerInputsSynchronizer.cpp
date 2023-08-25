@@ -12,11 +12,11 @@ void CPlayerInputsSynchronizer::Ack(const OptInt ack)
 	m_lastTickAcked = ack;
 }
 
- bool CPlayerInputsSynchronizer::GetPaket(flatbuffers::FlatBufferBuilder& builder, OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>& synchronizer, const OptInt* lastTickAcked)
+bool CPlayerInputsSynchronizer::GetPaket(flatbuffers::FlatBufferBuilder& builder, OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>& synchronizer, const OptInt* lastTickAcked)
 {
 	if(!m_tickNum.has_value())
 	{
-		const FlatBuffPacket::OptInt optInt(m_tickNum.I);
+		const FlatBuffPacket::OInt optInt(m_tickNum.I);
 		synchronizer = CreatePlayerInputsSynchronizer(builder, &optInt, 0);
 		return true;
 	}
@@ -28,7 +28,12 @@ void CPlayerInputsSynchronizer::Ack(const OptInt ack)
 	const int lastTickToSend = m_tickNum.value();
 	int count;
 
-	if (firstTickToSend <= lastTickToSend)
+	if (firstTickToSend > lastTickToSend)
+	{
+		gEnv->pLog->LogToFile("Attempted Send ticks from firstTickToSend %i to lastTickToSend %i, but firstTickToSend > lastTickToSend", firstTickToSend, lastTickToSend);
+		count = 0;
+	}
+	else
 	{
 		count = (lastTickToSend - firstTickToSend) + 1;
 		if (count > MAX_TICKS_TO_TRANSMIT)
@@ -36,11 +41,6 @@ void CPlayerInputsSynchronizer::Ack(const OptInt ack)
 			gEnv->pLog->LogToFile("Attempted Send %i inputs but max is %i", count, MAX_TICKS_TO_TRANSMIT);
 			return false;
 		}
-	}
-	else
-	{
-		gEnv->pLog->LogToFile("Attempted Send ticks from firstTickToSend %i to lastTickToSend %i, but firstTickToSend > lastTickToSend", firstTickToSend, lastTickToSend);
-		count = 0;
 	}
 
 	FlatBuffPacket::PlayerInput playerInputs[MAX_TICKS_TO_TRANSMIT];
@@ -50,14 +50,14 @@ void CPlayerInputsSynchronizer::Ack(const OptInt ack)
 	{
 		const CPlayerInput* val = m_playerInputsBuffer.GetAt(firstTickToSend + i);
 
-		FlatBuffPacket::Vec2 mouseDelta = FlatBuffPacket::Vec2(val->mouseDelta.x, val->mouseDelta.y);
+		FlatBuffPacket::V2 mouseDelta = FlatBuffPacket::V2(val->mouseDelta.x, val->mouseDelta.y);
 		const FlatBuffPacket::InputFlags playerActions = static_cast<FlatBuffPacket::InputFlags>(static_cast<int8_t>(val->playerActions));
 		const FlatBuffPacket::PlayerInput playerInput = FlatBuffPacket::PlayerInput(mouseDelta, playerActions);
 		playerInputs[i] = playerInput;
 	}
 	const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, count);
-	const FlatBuffPacket::OptInt optInt(m_tickNum.I);
-	synchronizer = CreatePlayerInputsSynchronizer(builder, &optInt, count, inputsFlatBuff);
+	const FlatBuffPacket::OInt optInt(m_tickNum.I);
+	synchronizer = CreatePlayerInputsSynchronizer(builder, &optInt, inputsFlatBuff);
 
 	return true;
 }
@@ -78,7 +78,7 @@ std::tuple<int, int, std::vector<CPlayerInput>> CPlayerInputsSynchronizer::Parse
 	if (!tickNum.has_value())
 		return std::make_tuple(0, 0, std::vector<CPlayerInput>(0));
 
-	const int maxCount = sync->tick_count();
+	const int maxCount = sync->inputs() == nullptr ? 0 : sync->inputs()->size();
 
 	if (maxCount > MAX_TICKS_TO_TRANSMIT)
 	{

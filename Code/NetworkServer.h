@@ -16,7 +16,7 @@ protected:
     ~CNetUdpServerInterface() = default;
 
 public:
-    virtual void Send(const char* buff, int len, sockaddr_in* to) = 0;
+    virtual void Send(char* buff, int len, sockaddr_in* to) = 0;
     virtual int Receive(char* buff, int len, sockaddr_in* si_other) = 0;
 };
 
@@ -25,7 +25,7 @@ class CNetUdpServer : public CNetUdpServerInterface
 public:
     virtual ~CNetUdpServer();
     CNetUdpServer();
-    void Send(const char* buff, int len, sockaddr_in* to) override;
+    void Send(char* buff, int len, sockaddr_in* to) override;
     int Receive(char* buff, int len, sockaddr_in* si_other) override;
 private:
     SOCKET m_ListenSocket;
@@ -35,7 +35,7 @@ struct ServerToClientUpdate
 {
 	char packetTypeCode = 'r';
 	size_t synchronizerPacketSizes[NUM_PLAYERS - 1] = {0};
-	char synchronizersBytes[sizeof PlayerInputsSynchronizerPacket * (NUM_PLAYERS-1)] = {0};
+	char synchronizersBytes[sizeof CPlayerInputsSynchronizerPacket * (NUM_PLAYERS-1)] = {0};
 };
 
 
@@ -54,15 +54,15 @@ struct ServerToClientUpdateDebugViewer
 		size_t offset = 0;
 		for (int i = 0; i < NUM_PLAYERS - 1; ++i)
 		{
-			PlayerInputsSynchronizerPacket* p = reinterpret_cast<PlayerInputsSynchronizerPacket*>(buff + offset);
+			CPlayerInputsSynchronizerPacket* p = reinterpret_cast<CPlayerInputsSynchronizerPacket*>(buff + offset);
 			s[i] = p;
 			offset += synchronizerPacketSizes[i] = u.synchronizerPacketSizes[i];
 		}
 	}
 	char packetTypeCode = 'r';
 	size_t synchronizerPacketSizes[NUM_PLAYERS - 1] = { 0 };
-	char buff[sizeof PlayerInputsSynchronizerPacket * (NUM_PLAYERS - 1)] = { 0 };
-	PlayerInputsSynchronizerPacket* s[NUM_PLAYERS - 1] = {};
+	char buff[sizeof CPlayerInputsSynchronizerPacket * (NUM_PLAYERS - 1)] = { 0 };
+	CPlayerInputsSynchronizerPacket* s[NUM_PLAYERS - 1] = {};
 };
 
 

@@ -16,7 +16,7 @@ protected:
     ~CNetUdpClientInterface() = default;
 
 public:
-    virtual void Send(const char* buff, int len) = 0;
+    virtual void Send(char* buff, int len) = 0;
     virtual int Receive(char* buff, int len) = 0;
 };
 
@@ -25,7 +25,7 @@ class CNetUdpClient : public CNetUdpClientInterface
 public:
 	virtual ~CNetUdpClient();
 	CNetUdpClient();
-    void Send(const char* buff, int len) override;
+    void Send(char* buff, int len) override;
     int Receive(char* buff, int len) override;
 private:
     SOCKET m_Socket;
@@ -46,24 +46,21 @@ class CNetworkClientInterface
 	virtual void SendTicks(int tickNum) = 0;
 };
 
-struct ClientToServerUpdate
+struct CClientToServerUpdate
 {
-    char packetTypeCode = 't';
     char playerNum = 0;
-    PlayerInputsSynchronizerPacketBytesUnion synchronizers[NUM_PLAYERS] = { PlayerInputsSynchronizerPacketBytesUnion{} };
+    CPlayerInputsSynchronizerPacket synchronizers[NUM_PLAYERS] = { CPlayerInputsSynchronizerPacket{} };
 };
 
 
-
-inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& rhs) {
-    //ClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
+inline std::ostream& operator<<(std::ostream& out, CClientToServerUpdate const& rhs) {
+    //CClientToServerUpdate{ packetTypeCode = 'r', playerNum = 1, tickCount = 1, tickNum = 1, ackServerUpdateNumber = 1, playerInputs = {CPlayerInput{Vec2{0.1, 0.1}, EInputFlag::MoveForward}} };
     /*packetTypeCode*/
-    out << "ClientToServerUpdate{ "
-        << "/*packetTypeCode*/ '" << rhs.packetTypeCode << "', "
+    out << "CClientToServerUpdate{ "
         << "/*playerNum*/ " << (int)rhs.playerNum << ", { ";
         for (int i = 0; i < NUM_PLAYERS - 1; ++i)
         {
-            out << rhs.synchronizers[i].packet;
+            out << rhs.synchronizers[i];
             if (i < NUM_PLAYERS - 2)
                 out << ", ";
             else
@@ -76,8 +73,8 @@ inline std::ostream& operator<<(std::ostream& out, ClientToServerUpdate const& r
 
 union ClientToServerUpdateBytesUnion
 {
-    char buff[sizeof(ClientToServerUpdate)] = { 0 };
-    ClientToServerUpdate ticks;
+    char buff[sizeof(CClientToServerUpdate)] = { 0 };
+    CClientToServerUpdate ticks;
 };
 
 class CNetworkClient : public CNetworkClientInterface, public CThreadRunnableInterface
@@ -119,6 +116,8 @@ public:
     void SendTicks(int tickNum) override;
 
 private:
+
+    std::atomic_int m_tickNum = INT_MIN;
 
     CNetUdpClientInterface *m_networkClientUdp;
     CPlayerInputsSynchronizer m_playerInputsSynchronizers[NUM_PLAYERS];

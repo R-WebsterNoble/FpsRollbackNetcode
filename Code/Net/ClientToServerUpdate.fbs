@@ -10,31 +10,29 @@ enum InputFlags:byte (native_inline, native_type: "EInputFlag", native_default: 
 	MoveBackward = 8
 }
 
-struct OptInt ( native_inline, native_type: "OptInt", native_default: "{INT_MIN}") {
+struct OInt ( native_inline, native_type: "OptInt", native_default: "{INT_MIN}") {
 	i:int;
 }
 
-struct Vec2 (native_type: "Vec2", native_default: "{0.f, 0.f}") {
+struct V2 (native_type: "Vec2", native_default: "{0.f, 0.f}") {
   x:float;
   y:float;
 }
 
 struct PlayerInput (native_inline, native_type: "CPlayerInput", native_default: "{INT_MIN}")
 {
-	mouse_delta:Vec2(native_inline);
+	mouse_delta:V2(native_inline);
 	player_actions:InputFlags;
 }
 
-table PlayerInputsSynchronizer (native_inline, native_type: "PlayerInputsSynchronizerPacket")
+table PlayerInputsSynchronizer (native_inline, native_type: "CPlayerInputsSynchronizerPacket")
 {
-	tick_num:OptInt(native_inline);
-	tick_count:int = 0;
+	tick_num:OInt(native_inline);
 	inputs:[PlayerInput];
 }
 
-table ClientToServerUpdate
+table ClientToServerUpdate (native_inline, native_type: "CClientToServerUpdate")
 {
-    player_num:byte;
     player_synchronizers:[PlayerInputsSynchronizer];
 }
  

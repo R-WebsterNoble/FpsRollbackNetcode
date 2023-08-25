@@ -64,7 +64,7 @@ CNetUdpClient::CNetUdpClient()
 
 }
 
-void CNetUdpClient::Send(const char* buff, int len)
+void CNetUdpClient::Send(char* buff, int len)
 {
 	if (sendto(m_Socket, buff, len, 0, reinterpret_cast<sockaddr*>(&m_serverAddress), sizeof m_serverAddress) == SOCKET_ERROR)
 	{
@@ -95,22 +95,22 @@ int CNetUdpClient::Receive(char* buff, int len)
 
 void CNetworkClient::Start()
 {
-	const char c[] = { 'c', '\0' };
+	char c[] = { 'c', '\0' };
 
 	m_networkClientUdp->Send(c, sizeof(c));
 }
 
 void CNetworkClient::DoWork()
-{	
-	char buf[sizeof(ServerToClientUpdate)];	
+{
+	char buf[BUFFER_SIZE];
 
 	// CryLog("NetworkClient: Waiting for data...");
 
 	//clear the buffer by filling null, it might have previously received data
-	memset(buf, '\0', BUFLEN);
+	memset(buf, '\0', BUFFER_SIZE);
 
 	//try to receive some data, this is a blocking call
-	int len = m_networkClientUdp->Receive(buf, BUFLEN);
+	int len = m_networkClientUdp->Receive(buf, BUFFER_SIZE);
 
 	if(buf[0] == 'p')
 	{
@@ -143,17 +143,19 @@ void CNetworkClient::DoWork()
 			for (int i = 0; i < NUM_PLAYERS; ++i)
 			{
 				const FlatBuffPacket::PlayerInputsSynchronizer* sync = update->player_synchronizers()->Get(i);
-				auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, m_playerInputsSynchronizers[i].GetLastTickAcked());
+				OptInt lastTickAcked = i == m_playerNumber ? OptInt(m_tickNum) : m_playerInputsSynchronizers[i].GetLastTickAcked();
+				auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, lastTickAcked);
 
-				if (i == m_playerNumber && count != 0)
-					CryFatalError("Error: Received inputs for current player!");
+				if (count > 0)
+				{
+					if (i == m_playerNumber)
+						CryFatalError("Error: Received inputs for current player!");
 
-				m_newPlayerInputsQueue.wait_enqueue(STickInput{ i, tickNum, inputs });
+					m_newPlayerInputsQueue.wait_enqueue(STickInput{ i, tickNum, inputs });
+				}
 				m_playerInputsSynchronizers[i].Ack(OptInt(sync->tick_num()->i()));
-			}
-		
-		}
-		
+			}		
+		}		
 	}
 
 	//print details of the client/peer and the data received
@@ -164,27 +166,31 @@ void CNetworkClient::DoWork()
 
 void CNetworkClient::EnqueueTick(const int tickNum, const CPlayerInput& playerInput)
 {
+	m_tickNum = tickNum;
 	m_playerInputsSynchronizers[m_playerNumber].Enqueue(tickNum, playerInput);
 }
 
 void CNetworkClient::SendTicks(const int tickNum)
-{	
-
+{
 	flatbuffers::FlatBufferBuilder builder;
 
 	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
 	for (int i = 0; i < NUM_PLAYERS; ++i)
 	{
 		if (!m_playerInputsSynchronizers[i].GetPaket(builder, s[i]))
-			return;
+			return;		
 	}
 	flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> offset = builder.CreateVector(s, NUM_PLAYERS);
-	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, m_playerNumber, offset);
+	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, offset);
 
 	builder.Finish(clientToServerUpdate);
 	uint8_t* bufferPointer = builder.GetBufferPointer();
 
 	const flatbuffers::FlatBufferBuilder::SizeT len = builder.GetSize();
+
+	if (len > BUFFER_SIZE)
+		CryFatalError("NetworkClient: Attempted to send %i bytes when BUFFER_SIZE = %i", len, BUFFER_SIZE);
+
 	m_networkClientUdp->Send(reinterpret_cast<char*>(bufferPointer), len);
 
 	const auto debugOut = flatbuffers::FlatBufferToString(bufferPointer, FlatBuffPacket::ClientToServerUpdateTypeTable());	

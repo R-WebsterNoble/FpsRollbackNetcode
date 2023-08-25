@@ -12,6 +12,9 @@ constexpr static int MAX_TICKS_TO_TRANSMIT = 128;// 1280 * 10;
 
 constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_TRANSMIT * 60 * 60;
 
+
+constexpr static int BUFFER_SIZE = 10000;
+
 // enum EPlayerActionFlag : uint32
 // {
 // 	None = 0,
@@ -198,3 +201,21 @@ struct STickInput
 	int tickNum;
 	std::vector<CPlayerInput> inputs;
 };
+
+// namespace FlatBuffPacket
+// {
+// 	struct OInt;
+// }
+//
+// namespace flatbuffers
+// {
+// 	inline FlatBuffPacket::OInt Pack(OptInt optInt)
+// 	{
+// 		return FlatBuffPacket::OInt(optInt.I);
+// 	}
+//
+// 	inline OptInt UnPack(FlatBuffPacket::OInt oInt)
+// 	{
+// 		return OptInt(oInt.i());
+// 	}
+// }

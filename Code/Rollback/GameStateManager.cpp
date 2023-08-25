@@ -10,9 +10,9 @@ bool CGameStateManager::Update(char playerNumber, const float frameTime, CPlayer
 	if (m_tickNum > MAX_GAME_DURATION_TICKS)
 		return false;
 
-if (frameTime > 1.0f)
+if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
 {
-	CryLog("CGameStateManager.Update: skipped slow frame! t = %f, ", frameTime);
+	CryLog("CGameStateManager.Update: skipped frame! t = %f, ", frameTime);
 
 	return false;
 }
@@ -22,42 +22,42 @@ if (frameTime > 1.0f)
 
 	// CPlayerInput& playerInput = next->playerInputs[playerNumber];
 
-if (playerNumber == 0)
-{
-	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + (m_tickNum * 0.0001f));
-	localPayerInput.playerActions = EInputFlag::MoveForward;
-}
+// if (playerNumber == 0)
+// {
+// 	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + ((m_tickNum + 1) * 0.01f));
+// 	localPayerInput.playerActions = EInputFlag::MoveForward;
+// }
 
-	m_timeRemainingAfterProcessingFixedTicks += frameTime;
+	float fTotalTime = m_timeRemainingAfterProcessingFixedTicks + frameTime;
 	m_inputAccumulator.mouseDelta += localPayerInput.mouseDelta;
 	localPayerInput.mouseDelta = m_inputAccumulator.mouseDelta;
 	
 	m_inputAccumulator.playerActions |= localPayerInput.playerActions;
 	localPayerInput.playerActions = m_inputAccumulator.playerActions;
 
-	const float fTicksToProcess = floor(m_timeRemainingAfterProcessingFixedTicks / m_tickDuration);
+	const float fTicksToProcess = floor(fTotalTime / m_tickDuration);
 	const int ticksToProcess = static_cast<int>(fTicksToProcess);
 
 	// if(ticksToProcess == 0)
 	// 	CryLog("CGameStateManager.Update: No NewTicks: Tick %i, t %d, ", m_tickNum, frameTime);
 
-	if (ticksToProcess >= 1)
+	if (ticksToProcess > 0)
 	{
-		const float ticksRemaining = remainderf(m_timeRemainingAfterProcessingFixedTicks, fTicksToProcess);
-		const float remainderFraction = ticksRemaining / (fTicksToProcess + ticksRemaining);
+		const float ticksRemaining = fTotalTime - (fTicksToProcess * m_tickDuration);
+		const float remainderFraction = ticksRemaining / fTotalTime;
 
-		const Vec2 mouseDeltaReminder = localPayerInput.mouseDelta * remainderFraction;
-		const Vec2 mouseDeltaPerTick = (localPayerInput.mouseDelta - mouseDeltaReminder) / fTicksToProcess;
+		const Vec2 mouseDeltaRemainder = localPayerInput.mouseDelta * remainderFraction;
+		const Vec2 mouseDeltaPerTick = (localPayerInput.mouseDelta - mouseDeltaRemainder) / fTicksToProcess;
 
 		localPayerInput.mouseDelta = mouseDeltaPerTick;
 
 		for (int i = 0; i < ticksToProcess; i++)
 		{
-if (playerNumber == 0)
-{
-	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + (m_tickNum * 0.0001f));
-	localPayerInput.playerActions = EInputFlag::MoveForward;
-}
+// if (playerNumber == 0)
+// {
+// 	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + ((m_tickNum + 1) * 0.01f));
+// 	localPayerInput.playerActions = EInputFlag::MoveForward;
+// }
 
 			// CryLog("CGameStateManager.Update: SendTicks Tick %i, t %d, ", m_tickNum, frameTime);
 			//if(m_tickNum % 10 == 0)
@@ -72,7 +72,7 @@ if (playerNumber == 0)
 
 			next->tickNum = m_tickNum++;			
 
-			m_timeRemainingAfterProcessingFixedTicks -= m_tickDuration;
+			fTotalTime -= m_tickDuration;
 
 			last = next;
 
@@ -81,19 +81,23 @@ if (playerNumber == 0)
 			next = m_gamesStates.PeakNext();
 		}
 
-		m_inputAccumulator.mouseDelta = ZERO;
+		m_inputAccumulator.mouseDelta = mouseDeltaRemainder;
 		m_inputAccumulator.playerActions = EInputFlag::None;
 
+		m_timeRemainingAfterProcessingFixedTicks = ticksRemaining;
+
 		std::memcpy(next->playerInputs, last->playerInputs, sizeof(next->playerInputs));
-			next->playerInputs[playerNumber].mouseDelta = mouseDeltaReminder;
+			next->playerInputs[playerNumber].mouseDelta = mouseDeltaRemainder;
 	}
+	else
+		m_timeRemainingAfterProcessingFixedTicks = fTotalTime;
 
 	if(ticksToProcess > 0)
 		pNetworkClient->SendTicks(m_tickNum-1);
 	else	
 		next->playerInputs[playerNumber] = localPayerInput;
 		
-	CSimulation::Next(m_timeRemainingAfterProcessingFixedTicks, last->gameState, next->playerInputs, outGameState);
+	CSimulation::Next(fTotalTime, last->gameState, next->playerInputs, outGameState);
 
 	return true;
 }

@@ -12,7 +12,6 @@
 
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 
-#define BUFLEN 1216	//Max length of buffer
 #define PORT 20100	//The port on which to listen for incoming data
 
 CNetUdpServer::~CNetUdpServer()
@@ -60,7 +59,7 @@ CNetUdpServer::CNetUdpServer()
 	CryLog("NetworkServer: Bind done");
 }
 
-void CNetUdpServer::Send(const char* buff, const int len, sockaddr_in* to)
+void CNetUdpServer::Send(char* buff, const int len, sockaddr_in* to)
 {
 	const int slen = sizeof(sockaddr_in);
 	if (sendto(m_ListenSocket, buff, len, 0, reinterpret_cast<sockaddr*>(to), slen) == SOCKET_ERROR)
@@ -95,7 +94,7 @@ void CNetworkServer::UpdateServerData(const FlatBuffPacket::ClientToServerUpdate
 		m_playerInputsSynchronizers[i].UpdateFromPacket(clientToServerUpdate->player_synchronizers()->Get(i));
 	}
 	// size_t offset = 0;
-	// const char* buff = clientToServerUpdate.ticks.synchronizers[0].buff;
+	// char* buff = clientToServerUpdate.ticks.synchronizers[0].buff;
 	//
 	// for (int i = 0; i < NUM_PLAYERS; ++i)
 	// {
@@ -104,7 +103,7 @@ void CNetworkServer::UpdateServerData(const FlatBuffPacket::ClientToServerUpdate
 	//
 	//
 	// CPlayerInputsSynchronizer &playerInputsSynchronizer = m_playerInputsSynchronizers[playerNumber];
-	// const size_t synchronizerSize = len - (sizeof ClientToServerUpdateBytesUnion - sizeof PlayerInputsSynchronizerPacket);
+	// const size_t synchronizerSize = len - (sizeof ClientToServerUpdateBytesUnion - sizeof CPlayerInputsSynchronizerPacket);
 	// playerInputsSynchronizer.UpdateFromPacket(clientToServerUpdate.ticks.synchronizers[playerNumber].buff, synchronizerSize);
 }
 
@@ -119,7 +118,7 @@ bool CNetworkServer::BuildResponsePacket(flatbuffers::FlatBufferBuilder& builder
 			return false;
 	}
 	const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-	serverToClientUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, 0, playerSynchronizers);
+	serverToClientUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, playerSynchronizers);
 
 	return true;
 }
@@ -129,21 +128,21 @@ void CNetworkServer::DoWork()
 	sockaddr_in si_other;
 
 	// ClientToServerUpdateBytesUnion clientToServerUpdate;
-	char recvBuffer[10000];
+	char recvBuffer[BUFFER_SIZE];
 
 
 	//CryLog("NetworkServer: Waiting for data...");
 
 	//clear the buffer by filling null, it might have previously received data
-	memset(recvBuffer, '\0', BUFLEN);
-	int len = m_networkServerUdp->Receive(recvBuffer, BUFLEN, &si_other);
+	memset(recvBuffer, '\0', BUFFER_SIZE);
+	int len = m_networkServerUdp->Receive(recvBuffer, BUFFER_SIZE, &si_other);
 
 	//try to receive some data, this is a blocking call
 
 
 	if (recvBuffer[0] == 'c')
 	{
-		const char c[] = { 'p', m_clientConnectionCounter, '\0' };
+		char c[] = { 'p', m_clientConnectionCounter, '\0' };
 
 		sockaddr_in* client = &m_clientSockets[m_clientConnectionCounter];
 
@@ -203,6 +202,8 @@ void CNetworkServer::DoWork()
 			uint8_t* bufferPointer = builder.GetBufferPointer();
 
 			const flatbuffers::FlatBufferBuilder::SizeT len2 = builder.GetSize();
+			if(len2 > BUFFER_SIZE)
+				CryFatalError("NetworkServer: Attempted to send %i bytes when BUFFER_SIZE = %i", len2, BUFFER_SIZE);
 			m_networkServerUdp->Send(reinterpret_cast<char*>(bufferPointer), len2, &si_other);
 
 			const auto debugOut2 = flatbuffers::FlatBufferToString(bufferPointer, FlatBuffPacket::ClientToServerUpdateTypeTable());
