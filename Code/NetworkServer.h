@@ -116,5 +116,6 @@ private:
 
 
     void UpdateServerData(const FlatBuffPacket::ClientToServerUpdate* clientToServerUpdate);
-    bool BuildResponsePacket(flatbuffers::FlatBufferBuilder& builder, const FlatBuffPacket::ClientToServerUpdate* update, OUT flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate>& serverToClientUpdate);
+    bool BuildResponsePacket(flatbuffers::FlatBufferBuilder& builder, const FlatBuffPacket::ClientToServerUpdate* update, OUT flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate>& serverToClientUpdate, int
+                             playerNum);
 };

@@ -1,5 +1,6 @@
 // Copyright 2016-2019 Crytek GmbH / Crytek Group. All rights reserved.
 #include "StdAfx.h"
+
 #include "GamePlugin.h"
 
 #include "Components/Player.h"
@@ -14,12 +15,13 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
-
-// #define test
+//#define test
 
 #ifdef test
 
 #include "Net/PlayerInputsSynchronizer.h"
+// #include <flatbuffers/idl.h>
+
 
 class CTestNetUdp : public CNetUdpClientInterface, public CNetUdpServerInterface
 {
@@ -696,7 +698,7 @@ const FlatBuffPacket::PlayerInputsSynchronizer* SerializeAndDeserialize(flatbuff
 {
 	const flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> synchronizers[1] = { synchronizer };
 	const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> synchronizersVector = builder.CreateVector(synchronizers, 1);
-	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = CreateClientToServerUpdate(builder, synchronizersVector);
+	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = CreateClientToServerUpdate(builder, 0, synchronizersVector);
 	builder.Finish(clientToServerUpdate);
 	const uint8_t* bufferPointer = builder.GetBufferPointer();
 	flatbuffers::Verifier verifier(bufferPointer, builder.GetSize(), 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
@@ -715,14 +717,14 @@ void TestPlayerInputsSynchronizer_HandlesEmptySendAndReceive()
 	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> synchronizer;
 
 
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 	OptInt optInt{};
 
 
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 
 
 	CRY_TEST_ASSERT(tickNum == 0);
@@ -739,14 +741,14 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndReceive()
 
 
 	s.Enqueue(0, CPlayerInput{ {0.1f, 0.0f}, EInputFlag::MoveForward });
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 	OptInt optInt{};
 
 
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 
 
 
@@ -767,14 +769,14 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendWithMultipleInputsAndSingleRe
 
 	s.Enqueue(0, CPlayerInput{ {0.1f, 0.0f}, EInputFlag::MoveForward });
 	s.Enqueue(1, CPlayerInput{ {0.2f, 0.0f}, EInputFlag::MoveForward });
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 	OptInt optInt{};
 
 
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 
 	CRY_TEST_ASSERT(tickNum == 0);
 	CRY_TEST_ASSERT(count == 2);
@@ -791,13 +793,13 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndAlreadyAckedReceive()
 	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> synchronizer;
 
 	s.Enqueue(0, CPlayerInput{ {0.1f, 0.0f}, EInputFlag::MoveForward });
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 	OptInt optInt{0};
 
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 
 	CRY_TEST_ASSERT(tickNum == 1);
 	CRY_TEST_ASSERT(count == 0);
@@ -812,18 +814,18 @@ void TestPlayerInputsSynchronizer_HandlesMultipleSendAndSingleReceive()
 
 
 	s.Enqueue(0, CPlayerInput{ {0.1f, 0.0f}, EInputFlag::MoveForward });
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	s.Enqueue(1, CPlayerInput{ {0.2f, 0.0f}, EInputFlag::MoveForward });
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 	OptInt optInt{};
 
 
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 	CRY_TEST_ASSERT(tickNum == 0);
 	CRY_TEST_ASSERT(count == 2);
 	CRY_TEST_ASSERT(inputs[0].mouseDelta.x == 0.1f);
@@ -844,14 +846,14 @@ void TestPlayerInputsSynchronizer_HandlesMaxInputs()
 		s.Enqueue(i, pi);
 	}
 
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 	OptInt optInt{ };
 
 
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 
 
 	CRY_TEST_ASSERT(tickNum == 0);
@@ -874,7 +876,7 @@ void TestPlayerInputsSynchronizer_SenderHandlesTooManyInputs()
 		s.Enqueue(i, pi);
 	}
 
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer) == false);
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0) == false);
 }
 
 
@@ -889,7 +891,7 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesTooManyTicks()
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 
 	OptInt optInt{ };
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 
 	CRY_TEST_ASSERT(tickNum == 0);
 	CRY_TEST_ASSERT(count == 0);
@@ -905,7 +907,7 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesSendThenReceiveThenSend()
 	//
 	// const CPlayerInput i = CPlayerInput{ {0.1f, 0.0f}, EInputFlag::MoveForward };
 	// s.Enqueue(0, i);
-	// CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	// CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 	//
 	//
 	// const FlatBuffPacket::PlayerInputsSynchronizer* sync = SerializeAndDeserialize(builder, synchronizer);
@@ -915,13 +917,13 @@ void TestPlayerInputsSynchronizer_ReceiverHandlesSendThenReceiveThenSend()
 	//
 	//
 	// s.Enqueue(1, CPlayerInput{ {0.2f, 0.0f}, EInputFlag::MoveForward });
-	// CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	// CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 	//
 	// sync = SerializeAndDeserialize(builder, synchronizer);
 	// OptInt optInt{1};
 	//
 	//
-	// auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	// auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 	//
 	// CRY_TEST_ASSERT(tickNum == 0);
 	// CRY_TEST_ASSERT(count == 1);
@@ -939,14 +941,14 @@ void TestPlayerInputsSynchronizer_HandlesAlreadyReceivedInputs()
 	
 	s.Enqueue(0, CPlayerInput{ {0.1f, 0.0f}, EInputFlag::MoveForward });
 	s.Enqueue(1, CPlayerInput{ {0.2f, 0.0f}, EInputFlag::MoveForward });
-	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer));
+	CRY_TEST_ASSERT(s.GetPaket(builder, synchronizer, 0));
 
 
 	const FlatBuffPacket::PlayerInputsSynchronizer* const sync = SerializeAndDeserialize(builder, synchronizer);
 	OptInt optInt{0};
 
 
-	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt);
+	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
 
 
 
@@ -1162,7 +1164,7 @@ void TestGameStateManagerCreatesHandlesAck()
 		
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1245,7 +1247,7 @@ void TestGameStateManagerHandlesOtherPlayerInputs()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1319,7 +1321,7 @@ void TestGameStateManagerHandlesOtherPlayerInputsAcked()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1348,7 +1350,7 @@ void TestGameStateManagerHandlesOtherPlayerInputsAcked()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1415,13 +1417,13 @@ void TestGameStateManagerHandlesMoreOtherPlayerInputsAfterAck()
 
 		for (int i = 1; i < NUM_PLAYERS; ++i)
 		{
-			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(2.0f, 2.0f), FlatBuffPacket::InputFlags_MoveForward} };
+			const FlatBuffPacket::PlayerInput playerInputs[] = { FlatBuffPacket::PlayerInput{FlatBuffPacket::V2(102.0f, 2.0f), FlatBuffPacket::InputFlags_MoveForward} };
 			const flatbuffers::Offset<flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>> inputsFlatBuff = builder.CreateVectorOfStructs(playerInputs, 1);
 			s[i] = CreatePlayerInputsSynchronizer(builder, &tickNum, inputsFlatBuff);
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1439,14 +1441,15 @@ void TestGameStateManagerHandlesMoreOtherPlayerInputsAfterAck()
 
 		CRY_TEST_CHECK_EQUAL(tickInput.tickNum, 0);
 		CRY_TEST_CHECK_EQUAL(tickInput.playerNum, i);
-		CRY_TEST_CHECK_CLOSE(tickInput.inputs.at(0).mouseDelta.x, 2.0f, 0.001f);
+		CRY_TEST_CHECK_CLOSE(tickInput.inputs.at(0).mouseDelta.x, 102.0f, 0.001f);
 	}
 
 	CRY_TEST_CHECK_EQUAL(networkClient.GetInputUpdates(tickInput), false);
 
 	testNetUdp.SetClientReceiveCallback(3, [](char* buff, int len) -> int
 	{
-		flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+		flatbuffers::FlatBufferBuilder builder;
+
 		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
 
 
@@ -1462,10 +1465,17 @@ void TestGameStateManagerHandlesMoreOtherPlayerInputsAfterAck()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
+
+		// std::string jsongen;
+		// flatbuffers::Parser parser;
+		// std::string schemafile;
+		// flatbuffers::LoadFile(R"(D:\Documents\Projects\FpsRollbackNetcode-Cryengine\Code\Net\ClientToServerUpdate.fbs)", false, &schemafile);
+		// parser.Parse(schemafile.c_str());
+		// GenerateText(parser, builder.GetBufferPointer(), &jsongen);
 
 		len = builder.GetSize();
 		memcpy(buff, bufferPointer, len);
@@ -1483,6 +1493,30 @@ void TestGameStateManagerHandlesMoreOtherPlayerInputsAfterAck()
 	}
 
 	CRY_TEST_CHECK_EQUAL(networkClient.GetInputUpdates(tickInput), false);
+
+	
+	testNetUdp.SetClientSendCallback(4, [](char* buff, int len) -> void
+	{
+		const uint8_t* buffer = reinterpret_cast<uint8_t*>(buff);
+		flatbuffers::Verifier verifier(buffer, len, 10, (NUM_PLAYERS * MAX_TICKS_TO_TRANSMIT) + 10);
+		if (FlatBuffPacket::VerifyClientToServerUpdateBuffer(verifier))
+		{
+			const FlatBuffPacket::ClientToServerUpdate* update = FlatBuffPacket::GetClientToServerUpdate(buffer);
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type playerInputsSynchronizer = update->player_synchronizers()->Get(0);
+			CRY_TEST_CHECK_EQUAL(playerInputsSynchronizer->tick_num()->i(), 1);
+			const flatbuffers::Vector<const FlatBuffPacket::PlayerInput*>* playerInputs = playerInputsSynchronizer->inputs();
+			CRY_TEST_CHECK_EQUAL(playerInputs->size(), 0);
+
+
+			const flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>::value_type player1InputsSynchronizer = update->player_synchronizers()->Get(1);
+			CRY_TEST_CHECK_EQUAL(player1InputsSynchronizer->tick_num()->i(), 1);
+			CRY_TEST_CHECK_EQUAL(player1InputsSynchronizer->inputs()->size(), 0);
+		}
+	});
+
+	CPlayerInput pi2 = CPlayerInput{ Vec2{2.0f, 0.0f}, EInputFlag::MoveBackward };
+
+	gsm.Update(0, 1.0f, pi2, &networkClient, gs);
 }
 
 void TestGameStateManager()
@@ -1525,7 +1559,7 @@ void TestNetworkServerHandlesFirstPacket()
 			}
 
 			const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-			const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+			const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 			builder.Finish(serverToClientUpdate);
 			const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1577,7 +1611,7 @@ void TestNetworkServerHandlesFirstTwoPackets()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1623,7 +1657,7 @@ void TestNetworkServerHandlesFirstTwoPackets()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1675,7 +1709,7 @@ void TestNetworkServerHandlesPacketsFromTwoPlayers()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1721,7 +1755,7 @@ void TestNetworkServerHandlesPacketsFromTwoPlayers()
 		}
 
 		const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, playerSynchronizers);
+		const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate = CreateClientToServerUpdate(builder, 0, playerSynchronizers);
 
 		builder.Finish(serverToClientUpdate);
 		const uint8_t* bufferPointer = builder.GetBufferPointer();
@@ -1784,8 +1818,8 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 	//
 	// Test1();
 	// Test2();
-	 Test3();
-	 TestPlayerInputsSynchronizer();
+	Test3();
+	TestPlayerInputsSynchronizer();
 	TestGameStateManager();
 	TestNetworkServer();
 
@@ -1881,7 +1915,8 @@ void CGamePlugin::MainUpdate(float frameTime)
 		return;
 	}
 
-	m_gameStateManager.DoRollback(m_pCNetworkClient);
+	const char localPlayerNumber = m_pCNetworkClient->LocalPlayerNumber();
+	m_gameStateManager.DoRollback(m_pCNetworkClient, localPlayerNumber);
 
 	LARGE_INTEGER updateTime;
 	QueryPerformanceCounter(&updateTime);
@@ -1907,7 +1942,6 @@ void CGamePlugin::MainUpdate(float frameTime)
 	// CryLog("CGameStateManager.Update: t %f, ", t);
 
 	const CPlayerInput playerInput = m_pLocalPlayerComponent->GetInput();
-	const char localPlayerNumber = m_pCNetworkClient->LocalPlayerNumber();
 
 	CGameState gameState;
 	if (!m_gameStateManager.Update(localPlayerNumber, t, playerInput, m_pCNetworkClient, gameState))

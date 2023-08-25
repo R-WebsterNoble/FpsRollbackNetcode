@@ -28,10 +28,10 @@ public:
 	bool GetPaket(flatbuffers::FlatBufferBuilder& builder,
 	              OUT flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>&
 	              synchronizer,
-	              const OptInt* lastTickAcked = nullptr);
-    void UpdateFromPacket(const FlatBuffPacket::PlayerInputsSynchronizer* sync);
+	              int playerNum, const OptInt* lastTickAcked = nullptr);
+    void UpdateFromPacket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, int playerNum);
     OptInt& GetLastTickAcked() { return m_lastTickAcked; };
-	static std::tuple<int, int, std::vector<CPlayerInput>> ParsePaket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, OptInt& lastTickAcked);
+	static std::tuple<int, int, std::vector<CPlayerInput>> ParsePaket(const FlatBuffPacket::PlayerInputsSynchronizer* sync, OptInt& lastTickAcked, int playerNum);
 
 private:
 	OptInt m_lastTickAcked;

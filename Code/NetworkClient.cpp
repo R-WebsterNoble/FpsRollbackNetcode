@@ -143,8 +143,9 @@ void CNetworkClient::DoWork()
 			for (int i = 0; i < NUM_PLAYERS; ++i)
 			{
 				const FlatBuffPacket::PlayerInputsSynchronizer* sync = update->player_synchronizers()->Get(i);
-				OptInt lastTickAcked = i == m_playerNumber ? OptInt(m_tickNum) : m_playerInputsSynchronizers[i].GetLastTickAcked();
-				auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, lastTickAcked);
+				CPlayerInputsSynchronizer& playerInputsSynchronizer = m_playerInputsSynchronizers[i];
+				OptInt lastTickAcked = i == m_playerNumber ? OptInt(m_tickNum) : playerInputsSynchronizer.GetLastTickAcked();
+				auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, lastTickAcked, i);
 
 				if (count > 0)
 				{
@@ -153,7 +154,7 @@ void CNetworkClient::DoWork()
 
 					m_newPlayerInputsQueue.wait_enqueue(STickInput{ i, tickNum, inputs });
 				}
-				m_playerInputsSynchronizers[i].Ack(OptInt(sync->tick_num()->i()));
+				playerInputsSynchronizer.Ack(OptInt(sync->tick_num()->i()));
 			}		
 		}		
 	}
@@ -170,18 +171,18 @@ void CNetworkClient::EnqueueTick(const int tickNum, const CPlayerInput& playerIn
 	m_playerInputsSynchronizers[m_playerNumber].Enqueue(tickNum, playerInput);
 }
 
-void CNetworkClient::SendTicks(const int tickNum)
+void CNetworkClient::SendTicks()
 {
 	flatbuffers::FlatBufferBuilder builder;
 
 	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
 	for (int i = 0; i < NUM_PLAYERS; ++i)
 	{
-		if (!m_playerInputsSynchronizers[i].GetPaket(builder, s[i]))
+		if (!m_playerInputsSynchronizers[i].GetPaket(builder, s[i], i))
 			return;		
 	}
 	flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> offset = builder.CreateVector(s, NUM_PLAYERS);
-	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, offset);
+	const flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> clientToServerUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, m_playerNumber, offset);
 
 	builder.Finish(clientToServerUpdate);
 	uint8_t* bufferPointer = builder.GetBufferPointer();

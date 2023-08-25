@@ -87,13 +87,14 @@ if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
 		m_timeRemainingAfterProcessingFixedTicks = ticksRemaining;
 
 		std::memcpy(next->playerInputs, last->playerInputs, sizeof(next->playerInputs));
+
 			next->playerInputs[playerNumber].mouseDelta = mouseDeltaRemainder;
 	}
 	else
 		m_timeRemainingAfterProcessingFixedTicks = fTotalTime;
 
 	if(ticksToProcess > 0)
-		pNetworkClient->SendTicks(m_tickNum-1);
+		pNetworkClient->SendTicks();
 	else	
 		next->playerInputs[playerNumber] = localPayerInput;
 		
@@ -102,7 +103,7 @@ if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
 	return true;
 }
 
-void CGameStateManager::DoRollback(CNetworkClient* pNetworkClient)
+void CGameStateManager::DoRollback(CNetworkClient* pNetworkClient, int clientPlayerNum)
 {
 	STickInput update;
 	int earliestUpdatedTick = INT_MAX;
@@ -110,6 +111,9 @@ void CGameStateManager::DoRollback(CNetworkClient* pNetworkClient)
 	while (pNetworkClient->GetInputUpdates(update))
 	{
 		const int playerNum = update.playerNum;
+	
+		if(playerNum == clientPlayerNum)
+			CryFatalError("CGameStateManager DoRollback() Attempted to overwrite local player's (#%i) inputs", clientPlayerNum);
 	
 		if (update.tickNum < earliestUpdatedTick)
 			earliestUpdatedTick = update.tickNum;

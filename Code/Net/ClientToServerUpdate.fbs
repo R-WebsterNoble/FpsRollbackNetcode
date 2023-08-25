@@ -33,6 +33,7 @@ table PlayerInputsSynchronizer (native_inline, native_type: "CPlayerInputsSynchr
 
 table ClientToServerUpdate (native_inline, native_type: "CClientToServerUpdate")
 {
+	player_num:int;
     player_synchronizers:[PlayerInputsSynchronizer];
 }
  

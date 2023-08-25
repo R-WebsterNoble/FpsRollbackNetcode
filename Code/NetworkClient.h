@@ -43,7 +43,7 @@ private:
 class CNetworkClientInterface
 {
 	virtual void EnqueueTick(int tickNum, const CPlayerInput& playerInput) = 0;
-	virtual void SendTicks(int tickNum) = 0;
+	virtual void SendTicks() = 0;
 };
 
 struct CClientToServerUpdate
@@ -113,7 +113,7 @@ public:
     void DoWork() override;
 
     void EnqueueTick(int tickNum, const CPlayerInput& playerInput) override;
-    void SendTicks(int tickNum) override;
+    void SendTicks() override;
 
 private:
 

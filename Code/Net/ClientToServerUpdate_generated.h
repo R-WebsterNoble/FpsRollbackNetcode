@@ -234,13 +234,18 @@ struct ClientToServerUpdate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Tab
     return ClientToServerUpdateTypeTable();
   }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PLAYER_SYNCHRONIZERS = 4
+    VT_PLAYER_NUM = 4,
+    VT_PLAYER_SYNCHRONIZERS = 6
   };
+  int32_t player_num() const {
+    return GetField<int32_t>(VT_PLAYER_NUM, 0);
+  }
   const ::flatbuffers::Vector<::flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>> *player_synchronizers() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>> *>(VT_PLAYER_SYNCHRONIZERS);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<int32_t>(verifier, VT_PLAYER_NUM, 4) &&
            VerifyOffset(verifier, VT_PLAYER_SYNCHRONIZERS) &&
            verifier.VerifyVector(player_synchronizers()) &&
            verifier.VerifyVectorOfTables(player_synchronizers()) &&
@@ -252,6 +257,9 @@ struct ClientToServerUpdateBuilder {
   typedef ClientToServerUpdate Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
+  void add_player_num(int32_t player_num) {
+    fbb_.AddElement<int32_t>(ClientToServerUpdate::VT_PLAYER_NUM, player_num, 0);
+  }
   void add_player_synchronizers(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> player_synchronizers) {
     fbb_.AddOffset(ClientToServerUpdate::VT_PLAYER_SYNCHRONIZERS, player_synchronizers);
   }
@@ -268,18 +276,22 @@ struct ClientToServerUpdateBuilder {
 
 inline ::flatbuffers::Offset<ClientToServerUpdate> CreateClientToServerUpdate(
     ::flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t player_num = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>> player_synchronizers = 0) {
   ClientToServerUpdateBuilder builder_(_fbb);
   builder_.add_player_synchronizers(player_synchronizers);
+  builder_.add_player_num(player_num);
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<ClientToServerUpdate> CreateClientToServerUpdateDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
+    int32_t player_num = 0,
     const std::vector<::flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>> *player_synchronizers = nullptr) {
   auto player_synchronizers__ = player_synchronizers ? _fbb.CreateVector<::flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>(*player_synchronizers) : 0;
   return FlatBuffPacket::CreateClientToServerUpdate(
       _fbb,
+      player_num,
       player_synchronizers__);
 }
 
@@ -379,16 +391,18 @@ inline const ::flatbuffers::TypeTable *PlayerInputsSynchronizerTypeTable() {
 
 inline const ::flatbuffers::TypeTable *ClientToServerUpdateTypeTable() {
   static const ::flatbuffers::TypeCode type_codes[] = {
+    { ::flatbuffers::ET_INT, 0, -1 },
     { ::flatbuffers::ET_SEQUENCE, 1, 0 }
   };
   static const ::flatbuffers::TypeFunction type_refs[] = {
     FlatBuffPacket::PlayerInputsSynchronizerTypeTable
   };
   static const char * const names[] = {
+    "player_num",
     "player_synchronizers"
   };
   static const ::flatbuffers::TypeTable tt = {
-    ::flatbuffers::ST_TABLE, 1, type_codes, type_refs, nullptr, nullptr, names
+    ::flatbuffers::ST_TABLE, 2, type_codes, type_refs, nullptr, nullptr, names
   };
   return &tt;
 }

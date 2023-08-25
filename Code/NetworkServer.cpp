@@ -91,7 +91,7 @@ void CNetworkServer::UpdateServerData(const FlatBuffPacket::ClientToServerUpdate
 {
 	for (int i = 0; i < NUM_PLAYERS; ++i)
 	{
-		m_playerInputsSynchronizers[i].UpdateFromPacket(clientToServerUpdate->player_synchronizers()->Get(i));
+		m_playerInputsSynchronizers[i].UpdateFromPacket(clientToServerUpdate->player_synchronizers()->Get(i), i);
 	}
 	// size_t offset = 0;
 	// char* buff = clientToServerUpdate.ticks.synchronizers[0].buff;
@@ -107,18 +107,19 @@ void CNetworkServer::UpdateServerData(const FlatBuffPacket::ClientToServerUpdate
 	// playerInputsSynchronizer.UpdateFromPacket(clientToServerUpdate.ticks.synchronizers[playerNumber].buff, synchronizerSize);
 }
 
-bool CNetworkServer::BuildResponsePacket(flatbuffers::FlatBufferBuilder& builder, const FlatBuffPacket::ClientToServerUpdate* update, OUT flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate>& serverToClientUpdate)
+bool CNetworkServer::BuildResponsePacket(flatbuffers::FlatBufferBuilder& builder, const FlatBuffPacket::ClientToServerUpdate* update, OUT flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate>& serverToClientUpdate, int
+                                         playerNum)
 {
 	flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> s[NUM_PLAYERS];
 	for (int i = 0; i < NUM_PLAYERS; ++i)
 	{
 		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> p1;
 		OptInt lastTickAcked(update->player_synchronizers()->Get(i)->tick_num()->i());
-		if (!m_playerInputsSynchronizers[0].GetPaket(builder, s[i], &lastTickAcked))
+		if (!m_playerInputsSynchronizers[0].GetPaket(builder, s[i], i, &lastTickAcked))
 			return false;
 	}
 	const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);
-	serverToClientUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, playerSynchronizers);
+	serverToClientUpdate = FlatBuffPacket::CreateClientToServerUpdate(builder, playerNum, playerSynchronizers);
 
 	return true;
 }
@@ -196,7 +197,7 @@ void CNetworkServer::DoWork()
 
 			flatbuffers::Offset<FlatBuffPacket::ClientToServerUpdate> serverToClientUpdate;
 
-			BuildResponsePacket(builder, update, serverToClientUpdate);
+			BuildResponsePacket(builder, update, serverToClientUpdate, update->player_num());
 
 			builder.Finish(serverToClientUpdate);
 			uint8_t* bufferPointer = builder.GetBufferPointer();
