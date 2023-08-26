@@ -19,9 +19,9 @@ float WrapRadians(const float value)
     return value - (times * (gf_PI * 2.0f));
 }
 
-constexpr float ACCELERATION = 50.0f;// 0.01f / 1000.0f;
+constexpr float ACCELERATION = 20.0f;// 0.01f / 1000.0f;
 
-constexpr float MAX_VELOCITY = 5.0f;// 0.002f;
+constexpr float MAX_VELOCITY = 2.0f;// 0.002f;
 
 void CSimulation::Next(const float dt, const CPlayerState& pPrevious, const CPlayerInput& playerInput, OUT CPlayerState& pNext)
 {    

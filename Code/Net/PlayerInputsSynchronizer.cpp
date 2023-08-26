@@ -32,7 +32,7 @@ bool CPlayerInputsSynchronizer::GetPaket(flatbuffers::FlatBufferBuilder& builder
 
 	if (firstTickToSend > lastTickToSend)
 	{
-		gEnv->pLog->LogToFile("Attempted Send ticks from firstTickToSend %i to lastTickToSend %i, but firstTickToSend > lastTickToSend for player %i", firstTickToSend, lastTickToSend, playerNum);
+		// gEnv->pLog->LogToFile("Attempted Send ticks from firstTickToSend %i to lastTickToSend %i, but firstTickToSend > lastTickToSend for player %i", firstTickToSend, lastTickToSend, playerNum);
 		count = 0;
 	}
 	else

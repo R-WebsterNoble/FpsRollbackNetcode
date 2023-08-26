@@ -8,7 +8,7 @@
 
 constexpr int NUM_PLAYERS = 2;
 
-constexpr static int MAX_TICKS_TO_TRANSMIT = 128;// 1280 * 10;
+constexpr static int MAX_TICKS_TO_TRANSMIT = 128*2;// 1280 * 10;
 
 constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_TRANSMIT * 60 * 60;
 

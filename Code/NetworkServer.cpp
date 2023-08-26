@@ -115,7 +115,7 @@ bool CNetworkServer::BuildResponsePacket(flatbuffers::FlatBufferBuilder& builder
 	{
 		flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer> p1;
 		OptInt lastTickAcked(update->player_synchronizers()->Get(i)->tick_num()->i());
-		if (!m_playerInputsSynchronizers[0].GetPaket(builder, s[i], i, &lastTickAcked))
+		if (!m_playerInputsSynchronizers[i].GetPaket(builder, s[i], i, &lastTickAcked))
 			return false;
 	}
 	const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<FlatBuffPacket::PlayerInputsSynchronizer>>>	playerSynchronizers = builder.CreateVector(s, NUM_PLAYERS);

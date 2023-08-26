@@ -1897,7 +1897,7 @@ void CGamePlugin::TryInitialiseRollback()
 			// Create the player component instance
 			CPlayerComponent* pPlayer = pPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
 
-			m_rollbackPlayers[i] = pPlayer;
+			m_rollbackPlayers[i] = pPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
 		}
 	}
 
@@ -1953,9 +1953,13 @@ void CGamePlugin::MainUpdate(float frameTime)
 		m_rollbackPlayers[i]->SetState(gameState.players[i]);
 	}
 
-	// CryLog("p:%i p[0]x:%f p[0]y:%f p[0]z:%f - p[1]x:%f p[1]y:%f p[1]z:%f", localPlayerNumber,
-	//        gameState.players[0].position.x, gameState.players[0].position.y, gameState.players[0].position.z,
-	//        gameState.players[1].position.x, gameState.players[1].position.y, gameState.players[1].position.z);
+	// IPersistantDebug* pPD = gEnv->pGameFramework->GetIPersistantDebug();	
+	// pPD->Begin("p:localPlayerNumber" + (int)localPlayerNumber, true);
+	//
+	// pPD->AddText(10.0f, 10.0f, 1.2f, ColorF(1.f, 0.f, 0.f, 1.f), 60.f, 
+	// 	"p:%i p[0]x:%f p[0]y:%f p[0]z:%f - p[1]x:%f p[1]y:%f p[1]z:%f", localPlayerNumber,
+	// 	gameState.players[0].position.x, gameState.players[0].position.y, gameState.players[0].position.z,
+	// 	gameState.players[1].position.x, gameState.players[1].position.y, gameState.players[1].position.z);
 }
 
 void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam)

@@ -22,11 +22,17 @@ if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
 
 	// CPlayerInput& playerInput = next->playerInputs[playerNumber];
 
-// if (playerNumber == 0)
-// {
-// 	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + ((m_tickNum + 1) * 0.01f));
-// 	localPayerInput.playerActions = EInputFlag::MoveForward;
-// }
+ // if (playerNumber == 1)
+ // {
+ // 	localPayerInput.mouseDelta.x = (((float)(m_tickNum + 1))/100.0f) * 0.001f;
+ // 	localPayerInput.playerActions = EInputFlag::MoveForward;
+ // }
+// else 
+//if (playerNumber == 0)
+//{
+//	localPayerInput.mouseDelta.x = (((float)(m_tickNum + 1)) / 100.0f) * -0.001f;
+//	localPayerInput.playerActions = EInputFlag::MoveBackward;
+//}
 
 	float fTotalTime = m_timeRemainingAfterProcessingFixedTicks + frameTime;
 	m_inputAccumulator.mouseDelta += localPayerInput.mouseDelta;
@@ -53,11 +59,17 @@ if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
 
 		for (int i = 0; i < ticksToProcess; i++)
 		{
-// if (playerNumber == 0)
-// {
-// 	localPayerInput.mouseDelta.x = (float)(playerNumber * 100 + ((m_tickNum + 1) * 0.01f));
-// 	localPayerInput.playerActions = EInputFlag::MoveForward;
-// }
+ // if (playerNumber == 1)
+ // {
+ // 	localPayerInput.mouseDelta.x = (((float)(m_tickNum + 1)) / 100.0f) * 0.001f;
+ // 	localPayerInput.playerActions = EInputFlag::MoveForward;
+ // }
+// else 
+//if (playerNumber == 0)
+//{
+//	localPayerInput.mouseDelta.x = (((float)(m_tickNum + 1)) / 100.0f) * -0.001f;
+//	localPayerInput.playerActions = EInputFlag::MoveBackward;
+//}
 
 			// CryLog("CGameStateManager.Update: SendTicks Tick %i, t %d, ", m_tickNum, frameTime);
 			//if(m_tickNum % 10 == 0)
@@ -92,6 +104,16 @@ if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
 	}
 	else
 		m_timeRemainingAfterProcessingFixedTicks = fTotalTime;
+
+	IGameFramework* pGameFramework = gEnv->pGameFramework;
+	if (pGameFramework != nullptr)
+	{
+		IPersistantDebug* pPD = pGameFramework->GetIPersistantDebug();
+		pPD->Begin("p:localPlayerNumber" + (int)playerNumber, true);
+
+		pPD->AddText(10.0f, 10.0f, 1.2f, ColorF(1.f, 0.f, 0.f, 1.f), 60.f,
+			"[0]: %s [1]: %s", ToString(next->playerInputs[0].playerActions).c_str(), ToString(next->playerInputs[1].playerActions).c_str());
+	}
 
 	if(ticksToProcess > 0)
 		pNetworkClient->SendTicks();
