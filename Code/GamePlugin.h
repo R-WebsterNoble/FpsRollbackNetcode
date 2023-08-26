@@ -73,7 +73,7 @@ protected:
 
 	LARGE_INTEGER m_lastUpdateTime;	
 
-	CGameStateManager m_gameStateManager = CGameStateManager(10.0f);
+	CGameStateManager m_gameStateManager = CGameStateManager(128.0f);
 	CNetworkServer* m_pCNetworkServer;
 	CNetworkClient* m_pCNetworkClient;
 

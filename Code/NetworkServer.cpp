@@ -138,17 +138,22 @@ void CNetworkServer::DoWork()
 	memset(recvBuffer, '\0', BUFFER_SIZE);
 	int len = m_networkServerUdp->Receive(recvBuffer, BUFFER_SIZE, &si_other);
 
-	//try to receive some data, this is a blocking call
-
+	//try to receive some data, this is a blocking call	
 
 	if (recvBuffer[0] == 'c')
 	{
-		char c[] = { 'p', m_clientConnectionCounter, '\0' };
+		if(m_clientConnectionCounter >= NUM_PLAYERS)
+		{
+			char c[] = { 'p', -1, '\0' };
+			m_networkServerUdp->Send(c, sizeof(c), &si_other);
+			return;
+		}
 
 		sockaddr_in* client = &m_clientSockets[m_clientConnectionCounter];
 
 		*client = si_other;
 
+		char c[] = { 'p', m_clientConnectionCounter, '\0' };
 		m_networkServerUdp->Send(c, sizeof(c), client);
 
 		m_clientConnectionCounter++;

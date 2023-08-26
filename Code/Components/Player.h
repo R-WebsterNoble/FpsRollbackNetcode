@@ -116,7 +116,8 @@ public:
 	void SetState(const CPlayerState& playerState) const;
 	static void SetState(IEntity* playerEntity, const CPlayerState& playerState);
 	void UpdateRollbackCameraAndPosition(const CPlayerState& playerState) const;
-	void SetIsRollbackControlled(bool isRollbackControlled) { m_isRollbackControlled = false; }
+	bool IsRollbackControlled() const { return m_isRollbackControlled; }
+	void SetIsRollbackControlled(bool isRollbackControlled) { m_isRollbackControlled = isRollbackControlled; }
 
 protected:
 	void Revive(const Matrix34& transform);
@@ -180,5 +181,5 @@ protected:
 	Quat m_lookOrientation; //!< Should translate to head orientation in the future
 	float m_horizontalAngularVelocity;
 	MovingAverage<float, 10> m_averagedHorizontalAngularVelocity;
-	bool m_isRollbackControlled = true;
+	bool m_isRollbackControlled = false;
 };

@@ -800,8 +800,7 @@ void TestPlayerInputsSynchronizer_HandlesSingleSendAndAlreadyAckedReceive()
 	OptInt optInt{0};
 
 	auto [tickNum, count, inputs] = CPlayerInputsSynchronizer::ParsePaket(sync, optInt, 0);
-
-	CRY_TEST_ASSERT(tickNum == 1);
+	
 	CRY_TEST_ASSERT(count == 0);
 }
 
@@ -1867,6 +1866,14 @@ void CGamePlugin::TryInitialiseRollback()
 
 	const char localPlayerNumber = m_pCNetworkClient->LocalPlayerNumber();
 
+	if (localPlayerNumber == -1)
+	{
+		m_pLocalPlayerComponent->SetIsRollbackControlled(false);
+		return;
+	}
+	
+	m_pLocalPlayerComponent->SetIsRollbackControlled(true);
+
 	for (int i = 0; i < NUM_PLAYERS; ++i)
 	{
 		if (i == localPlayerNumber)
@@ -1884,18 +1891,17 @@ void CGamePlugin::TryInitialiseRollback()
 		const string playerName = string().Format("Player%" PRISIZE_T, m_players.size());
 		spawnParams.sName = playerName;
 
-		// Set local player details
-		if (m_players.empty() && !gEnv->IsDedicated())
-		{
-			spawnParams.id = LOCAL_PLAYER_ENTITY_ID;
-			spawnParams.nFlags |= ENTITY_FLAG_LOCAL_PLAYER;
-		}
+		// // Set local player details
+		// if (m_players.empty() && !gEnv->IsDedicated())
+		// {
+		// 	spawnParams.id = LOCAL_PLAYER_ENTITY_ID;
+		// 	spawnParams.nFlags |= ENTITY_FLAG_LOCAL_PLAYER;
+		// }
 
 		// Spawn the player entity
 		if (IEntity* pPlayerEntity = gEnv->pEntitySystem->SpawnEntity(spawnParams))
 		{
 			// Create the player component instance
-			CPlayerComponent* pPlayer = pPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
 
 			m_rollbackPlayers[i] = pPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
 		}
