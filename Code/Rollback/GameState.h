@@ -13,6 +13,9 @@ constexpr static int MAX_TICKS_TO_TRANSMIT = 128*2;// 1280 * 10;
 constexpr static int MAX_GAME_DURATION_TICKS = MAX_TICKS_TO_TRANSMIT * 60 * 60;
 
 
+constexpr static int TICKS_PER_SECOND = 128;
+constexpr static float TICKS_DURATION = 1.0f/TICKS_PER_SECOND;
+
 constexpr static int BUFFER_SIZE = 10000;
 
 // enum EPlayerActionFlag : uint32

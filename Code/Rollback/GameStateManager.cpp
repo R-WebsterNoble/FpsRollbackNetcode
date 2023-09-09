@@ -5,7 +5,7 @@
 
 
 bool CGameStateManager::Update(char playerNumber, const float frameTime, CPlayerInput localPayerInput,
-                               CNetworkClient* pNetworkClient, OUT CGameState& outGameState)
+                               CNetworkClient* pNetworkClient, OUT CGameState& outGameState, int delay)
 {
 	if (m_tickNum > MAX_GAME_DURATION_TICKS)
 		return false;
@@ -120,7 +120,14 @@ if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
 	else	
 		next->playerInputs[playerNumber] = localPayerInput;
 		
-	CSimulation::Next(fTotalTime, last->gameState, next->playerInputs, outGameState);
+
+	const int delayTickNum = max(m_tickNum - delay, 0);
+	CTick delayTick = *m_gamesStates.GetAt(delayTickNum);
+	
+	delayTick.gameState.players[playerNumber] = last->gameState.players[playerNumber];
+	delayTick.playerInputs[playerNumber] = last->playerInputs[playerNumber];
+
+	CSimulation::Next(fTotalTime, delayTick.gameState, delayTick.playerInputs, outGameState);
 
 	return true;
 }

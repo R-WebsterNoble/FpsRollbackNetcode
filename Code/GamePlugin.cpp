@@ -15,6 +15,8 @@
 // Included only once per DLL module.
 #include <CryCore/Platform/platform_impl.inl>
 
+#include <IActionMapManager.h>
+
 //#define test
 
 #ifdef test
@@ -1831,6 +1833,8 @@ bool CGamePlugin::Initialize(SSystemGlobalEnvironment& env, const SSystemInitPar
 	// Register for engine system events, in our case we need ESYSTEM_EVENT_GAME_POST_INIT to load the map
 	gEnv->pSystem->GetISystemEventDispatcher()->RegisterListener(this, "CGamePlugin");
 
+
+
 	return true;
 }
 
@@ -1950,7 +1954,7 @@ void CGamePlugin::MainUpdate(float frameTime)
 	const CPlayerInput playerInput = m_pLocalPlayerComponent->GetInput();
 
 	CGameState gameState;
-	if (!m_gameStateManager.Update(localPlayerNumber, t, playerInput, m_pCNetworkClient, gameState))
+	if (!m_gameStateManager.Update(localPlayerNumber, t, playerInput, m_pCNetworkClient, gameState, m_delay))
 		return;
 
 	// m_pLocalPlayerComponent->SetState(gameState.players[localPlayerNumber]);
@@ -1968,6 +1972,30 @@ void CGamePlugin::MainUpdate(float frameTime)
 	// 	gameState.players[1].position.x, gameState.players[1].position.y, gameState.players[1].position.z);
 }
 
+void CGamePlugin::OnAction(const ActionId& actionId, int activationMode, float value)
+{
+	const bool isInputPressed = (activationMode & eIS_Pressed) != 0;
+
+	if (!isInputPressed)
+		return;
+
+	// Check if the triggered action
+	if (actionId == m_increaseDelayActionId)
+	{
+		m_delay += 5;
+	}
+	else if (actionId == m_decreaseDelayActionId)
+	{
+		m_delay -= 5;
+	}
+	m_delay = clamp_tpl(m_delay, 0, MAX_TICKS_TO_TRANSMIT-1);
+	IPersistantDebug* pPD = gEnv->pGameFramework->GetIPersistantDebug();
+	pPD->Begin("delay", true);
+
+	pPD->AddText(10.0f, 30.0f, 1.2f, ColorF(1.f, 1.f, 1.f, 1.f), 5.0f,
+	             "Delay: %i (%fms)", m_delay, TICKS_DURATION * m_delay * 1000.0f);
+}
+
 void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lparam)
 {
 	switch (event)
@@ -1981,6 +2009,28 @@ void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lp
 		// Don't need to load the map in editor
 		if (!gEnv->IsEditor())
 		{
+			IActionMapManager* pActionMapManager = gEnv->pGameFramework->GetIActionMapManager();
+			IActionMap* pActionMap = pActionMapManager->CreateActionMap("system");
+			pActionMapManager->AddExtraActionListener(this, "system");
+
+			pActionMap->CreateAction(m_increaseDelayActionId);
+			SActionInput increaseDelayInput;
+			increaseDelayInput.inputDevice = eAID_KeyboardMouse;
+			increaseDelayInput.input = increaseDelayInput.defaultInput = "up";
+			increaseDelayInput.activationMode = eIS_Pressed;
+			pActionMap->AddAndBindActionInput(m_increaseDelayActionId, increaseDelayInput);
+
+			const ActionId decreaseDelayActionId("decreaseDelay");
+			pActionMap->CreateAction(m_decreaseDelayActionId);
+			pActionMap->CreateAction(decreaseDelayActionId);
+			SActionInput decreaseDelayInput;
+			decreaseDelayInput.inputDevice = eAID_KeyboardMouse;
+			decreaseDelayInput.input = decreaseDelayInput.defaultInput = "down";
+			decreaseDelayInput.activationMode = eIS_Pressed;
+			pActionMap->AddAndBindActionInput(m_decreaseDelayActionId, decreaseDelayInput);
+
+			pActionMap->Enable(true);
+
 			// Load the example map in client server mode
 			gEnv->pConsole->ExecuteString("map example s", false, true);
 

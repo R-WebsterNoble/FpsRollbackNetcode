@@ -20,4 +20,9 @@
 		
 		<action name="shoot" onPress="1" onRelease="1" retriggerable="1" keyboard="mouse1"/>
 	</actionmap>  
+
+	<actionmap name="system" version="1">		
+		<action name="increaseDelay" onPress="1" keyboard="up" />
+		<action name="decreaseDelay" onPress="1" keyboard="down" />
+	</actionmap>  
 </profile>

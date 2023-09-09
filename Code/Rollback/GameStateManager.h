@@ -7,7 +7,7 @@
 class CGameStateManagerInterface
 {
 	virtual bool Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
-	                    CNetworkClient* pNetworkClient, OUT CGameState& outGameState) = 0;
+	                    CNetworkClient* pNetworkClient, OUT CGameState& outGameState, int delay) = 0;
 };
 
 class CGameStateManager : CGameStateManagerInterface
@@ -46,7 +46,7 @@ public:
 	}
 
 	bool Update(char playerNumber, const float frameTime, CPlayerInput playerInput,
-	            CNetworkClient* pNetworkClient, OUT CGameState& outGameState) override;
+	            CNetworkClient* pNetworkClient, OUT CGameState& outGameState, int delay) override;
 
 	void DoRollback(CNetworkClient* pNetworkClient, int clientPlayerNum);
 	

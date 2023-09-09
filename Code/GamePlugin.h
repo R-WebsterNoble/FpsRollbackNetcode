@@ -19,6 +19,7 @@ class CGamePlugin
 	: public Cry::IEnginePlugin
 	, public ISystemEventListener
 	, public INetworkedClientListener
+	, public IActionListener
 {
 public:
 	CRYINTERFACE_SIMPLE(Cry::IEnginePlugin)
@@ -58,6 +59,8 @@ public:
 	// Helper function to call the specified callback for every player in the game
 	void IterateOverPlayers(std::function<void(CPlayerComponent& player)> func) const;
 
+	virtual void OnAction(const ActionId& actionId, int activationMode, float value) override;
+
 	// Helper function to get the CGamePlugin instance
 	// Note that CGamePlugin is declared as a singleton, so the CreateClassInstance will always return the same pointer
 	static CGamePlugin* GetInstance()
@@ -79,4 +82,9 @@ protected:
 
 	CPlayerComponent* m_rollbackPlayers[NUM_PLAYERS];
 	bool m_rollbackInitialised = false;
+
+	int m_delay = 0;
+
+	const ActionId m_increaseDelayActionId = ActionId("increaseDelay");
+	const ActionId m_decreaseDelayActionId = ActionId("decreaseDelay");
 };
