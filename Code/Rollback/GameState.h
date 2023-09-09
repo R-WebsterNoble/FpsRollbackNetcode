@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ostream>
+#include <ostream>	
 
 #include "InputFlag.h"
 #include "StdAfx.h"
@@ -18,9 +18,9 @@ constexpr static float TICKS_DURATION = 1.0f/TICKS_PER_SECOND;
 
 constexpr static int BUFFER_SIZE = 10000;
 
-constexpr float ACCELERATION = 20.0f;// 0.01f / 1000.0f;
+constexpr float ACCELERATION = 15.0f;// 0.01f / 1000.0f;
 
-constexpr float MAX_VELOCITY = 2.0f;// 0.002f;
+constexpr float MAX_VELOCITY = 2.5f;// 0.002f;
 
 // enum EPlayerActionFlag : uint32
 // {

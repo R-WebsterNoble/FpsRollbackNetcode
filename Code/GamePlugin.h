@@ -90,4 +90,6 @@ protected:
 
 	const ActionId m_increaseDelayActionId = ActionId("increaseDelay");
 	const ActionId m_decreaseDelayActionId = ActionId("decreaseDelay");
+	const ActionId m_showSmoothedActionId = ActionId("toggle_show_smoothed");
+	const ActionId m_showRollbackActionId = ActionId("toggle_show_rollback");
 };

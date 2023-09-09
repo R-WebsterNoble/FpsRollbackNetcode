@@ -2053,6 +2053,9 @@ void CGamePlugin::OnAction(const ActionId& actionId, int activationMode, float v
 	if (!isInputPressed)
 		return;
 
+
+	IPersistantDebug* pPD = gEnv->pGameFramework->GetIPersistantDebug();
+
 	// Check if the triggered action
 	if (actionId == m_increaseDelayActionId)
 	{
@@ -2062,8 +2065,35 @@ void CGamePlugin::OnAction(const ActionId& actionId, int activationMode, float v
 	{
 		m_delay -= 5;
 	}
+	else if (actionId == m_showRollbackActionId)
+	{
+		for (int i = 0; i < NUM_PLAYERS; ++i)
+		{
+			IEntity* entity = m_rollbackPlayers[i]->GetEntity();
+			entity->Hide(!entity->IsHidden());
+		}
+		pPD->Begin("display", true);
+
+		pPD->AddText(10.0f, 40.0f, 1.2f, ColorF(0.f, 1.f, 0.f, 1.f), 1.0f,
+			"Toggled Rollback display");
+	}
+	else if (actionId == m_showSmoothedActionId)
+	{
+		for (int i = 0; i < NUM_PLAYERS; ++i)
+		{
+			if (m_resycSmoothedPlayers[i] != nullptr)
+			{
+				IEntity* entity = m_resycSmoothedPlayers[i]->GetEntity();
+				entity->Hide(!entity->IsHidden());
+			}
+		}
+		pPD->Begin("display", true);
+
+		pPD->AddText(10.0f, 40.0f, 1.2f, ColorF(0.f, 1.f, 0.f, 1.f), 1.0f,
+			"Toggled Smoothed display");
+	}
+
 	m_delay = clamp_tpl(m_delay, 0, MAX_TICKS_TO_TRANSMIT-1);
-	IPersistantDebug* pPD = gEnv->pGameFramework->GetIPersistantDebug();
 	pPD->Begin("delay", true);
 
 	pPD->AddText(10.0f, 30.0f, 1.2f, ColorF(1.f, 1.f, 1.f, 1.f), 5.0f,
@@ -2093,15 +2123,29 @@ void CGamePlugin::OnSystemEvent(ESystemEvent event, UINT_PTR wparam, UINT_PTR lp
 			increaseDelayInput.input = increaseDelayInput.defaultInput = "up";
 			increaseDelayInput.activationMode = eIS_Pressed;
 			pActionMap->AddAndBindActionInput(m_increaseDelayActionId, increaseDelayInput);
-
-			const ActionId decreaseDelayActionId("decreaseDelay");
+			
 			pActionMap->CreateAction(m_decreaseDelayActionId);
-			pActionMap->CreateAction(decreaseDelayActionId);
 			SActionInput decreaseDelayInput;
 			decreaseDelayInput.inputDevice = eAID_KeyboardMouse;
 			decreaseDelayInput.input = decreaseDelayInput.defaultInput = "down";
 			decreaseDelayInput.activationMode = eIS_Pressed;
 			pActionMap->AddAndBindActionInput(m_decreaseDelayActionId, decreaseDelayInput);
+
+
+			pActionMap->CreateAction(m_showSmoothedActionId);
+			SActionInput showSmoothedInput;
+			showSmoothedInput.inputDevice = eAID_KeyboardMouse;
+			showSmoothedInput.input = showSmoothedInput.defaultInput = "end";
+			showSmoothedInput.activationMode = eIS_Pressed;
+			pActionMap->AddAndBindActionInput(m_showSmoothedActionId, showSmoothedInput);
+
+
+			pActionMap->CreateAction(m_showRollbackActionId);
+			SActionInput showRollbackInput;
+			showRollbackInput.inputDevice = eAID_KeyboardMouse;
+			showRollbackInput.input = showRollbackInput.defaultInput = "pgdn";
+			showRollbackInput.activationMode = eIS_Pressed;
+			pActionMap->AddAndBindActionInput(m_showRollbackActionId, showRollbackInput);
 
 			pActionMap->Enable(true);
 

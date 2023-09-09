@@ -24,5 +24,8 @@
 	<actionmap name="system" version="1">		
 		<action name="increaseDelay" onPress="1" keyboard="up" />
 		<action name="decreaseDelay" onPress="1" keyboard="down" />
+		
+		<action name="toggle_show_smoothed" onPress="1" keyboard="end" />
+		<action name="toggle_show_rollback" onPress="1" keyboard="pgdn" />
 	</actionmap>  
 </profile>
