@@ -81,6 +81,9 @@ protected:
 	CNetworkClient* m_pCNetworkClient;
 
 	CPlayerComponent* m_rollbackPlayers[NUM_PLAYERS];
+	CPlayerComponent* m_resycSmoothedPlayers[NUM_PLAYERS];
+	CPlayerState m_resycSmoothedPlayerStates[NUM_PLAYERS];
+
 	bool m_rollbackInitialised = false;
 
 	int m_delay = 0;

@@ -22,6 +22,7 @@
 #ifdef test
 
 #include "Net/PlayerInputsSynchronizer.h"
+using namespace SSystemGlobalEnvironment;
 // #include <flatbuffers/idl.h>
 
 
@@ -1909,9 +1910,77 @@ void CGamePlugin::TryInitialiseRollback()
 
 			m_rollbackPlayers[i] = pPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
 		}
+
+		SEntitySpawnParams resycSmoothedPlayerSpawnParams;
+		// Set a unique name for the resycSmoothedPlayer entity
+		const string resycSmoothedPlayerName = string().Format("ResycSmoothedPlayer%" PRISIZE_T, NUM_PLAYERS);
+		resycSmoothedPlayerSpawnParams.sName = resycSmoothedPlayerName;
+
+		// Spawn the resycSmoothedPlayer entity
+		if (IEntity* pResycSmoothedPlayerEntity = gEnv->pEntitySystem->SpawnEntity(resycSmoothedPlayerSpawnParams))
+		{
+			// Create the resycSmoothedPlayer component instance
+
+			m_resycSmoothedPlayers[i] = pResycSmoothedPlayerEntity->GetOrCreateComponentClass<CPlayerComponent>();
+		}
+
+		CPlayerState& pPlayerState = m_resycSmoothedPlayerStates[i];
+		pPlayerState.position = Vec3(66.0f + (i * 3.0f), 49.0f, 32.0161781f);
+		// pPlayerState.position = Vec3(66.1380920f, 49.5188217f, 32.0161781f);
+		pPlayerState.rotation = ZERO;//Vec3(gf_PI * 0.5f, 0.0f, 0.0f);
+		pPlayerState.velocity = ZERO;
+		
 	}
 
 	m_rollbackInitialised = true;
+}
+
+Quat RotateTowards(const Quat& from, const Quat& to, float maxRadiansDelta)
+{
+	float r = (from | to);
+	float angle = (float)acos(2 * pow(r, 2) - 1);
+
+	if (angle == 0.0f || maxRadiansDelta == 0.0f)
+		return from;
+
+	float t = min(1.0f, maxRadiansDelta / angle);
+	return CryQuat::CreateSlerp(from, to, t);
+}
+
+Vec3 ConstantInterpolate(Vec3 start, Vec3 end, float constant)
+{
+	const Vec3 direction = end - start;
+	const float distance = direction.GetLength();
+	if (constant >= distance)
+	{
+		return end;
+	}
+	const Vec3 normalizedDirection = direction / distance;
+	const Vec3 constantVector = normalizedDirection * constant;
+	return start + constantVector;
+}
+
+void ApplyResycSmoothing(const CPlayerState& targetPlayer, CPlayerState& resycSmoothedPlayerState, float deltaTime)
+{
+	constexpr float lep_amount = 1.0f;
+	constexpr float constant_amount = MAX_VELOCITY * 1.45f;
+
+	constexpr float slerp_amount = 5.0f;
+	constexpr float sconstant_amount = 5.0f;
+
+	resycSmoothedPlayerState.position = Lerp(resycSmoothedPlayerState.position, targetPlayer.position, lep_amount * deltaTime);
+	resycSmoothedPlayerState.position = ConstantInterpolate(resycSmoothedPlayerState.position, targetPlayer.position, constant_amount * deltaTime);
+
+	
+	const Quat targetRot = Quat(CCamera::CreateOrientationYPR(Ang3(targetPlayer.rotation.x, targetPlayer.rotation.y, 0)));
+	const Quat resycSmoothedPlayerRot = Quat(CCamera::CreateOrientationYPR(Ang3(resycSmoothedPlayerState.rotation.x, resycSmoothedPlayerState.rotation.y, 0)));
+	
+	Quat slerpResult;
+	slerpResult.SetSlerp(resycSmoothedPlayerRot, targetRot, slerp_amount * deltaTime);
+
+	const Quat constantInterpolateResult = RotateTowards(slerpResult, targetRot, sconstant_amount * deltaTime);
+	const Vec3 slerpedAngles = CCamera::CreateAnglesYPR(Matrix33(constantInterpolateResult));
+	resycSmoothedPlayerState.rotation = slerpedAngles;
 }
 
 void CGamePlugin::MainUpdate(float frameTime)
@@ -1924,7 +1993,7 @@ void CGamePlugin::MainUpdate(float frameTime)
 		TryInitialiseRollback();
 		return;
 	}
-
+	
 	const char localPlayerNumber = m_pCNetworkClient->LocalPlayerNumber();
 	m_gameStateManager.DoRollback(m_pCNetworkClient, localPlayerNumber);
 
@@ -1948,7 +2017,6 @@ void CGamePlugin::MainUpdate(float frameTime)
 
 	m_lastUpdateTime = updateTime;
 
-
 	// CryLog("CGameStateManager.Update: t %f, ", t);
 
 	const CPlayerInput playerInput = m_pLocalPlayerComponent->GetInput();
@@ -1956,11 +2024,17 @@ void CGamePlugin::MainUpdate(float frameTime)
 	CGameState gameState;
 	if (!m_gameStateManager.Update(localPlayerNumber, t, playerInput, m_pCNetworkClient, gameState, m_delay))
 		return;
-
+	
 	// m_pLocalPlayerComponent->SetState(gameState.players[localPlayerNumber]);
 	for (int i = 0; i < NUM_PLAYERS; i++)
 	{
 		m_rollbackPlayers[i]->SetState(gameState.players[i]);
+
+		if (i != localPlayerNumber)
+		{
+			ApplyResycSmoothing(gameState.players[i], m_resycSmoothedPlayerStates[i], t);
+			m_resycSmoothedPlayers[i]->SetState(m_resycSmoothedPlayerStates[i]);
+		}
 	}
 
 	// IPersistantDebug* pPD = gEnv->pGameFramework->GetIPersistantDebug();	

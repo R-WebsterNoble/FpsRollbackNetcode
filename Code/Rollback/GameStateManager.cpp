@@ -10,12 +10,12 @@ bool CGameStateManager::Update(char playerNumber, const float frameTime, CPlayer
 	if (m_tickNum > MAX_GAME_DURATION_TICKS)
 		return false;
 
-if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
-{
-	CryLog("CGameStateManager.Update: skipped frame! t = %f, ", frameTime);
+	if (frameTime > m_tickDuration * MAX_TICKS_TO_TRANSMIT || frameTime <= 0.0f)
+	{
+		CryLog("CGameStateManager.Update: skipped frame! t = %f, ", frameTime);
 
-	return false;
-}
+		return false;
+	}
 
 	const CTick* last = m_gamesStates.PeakHead();
 	CTick* next = m_gamesStates.PeakNext();

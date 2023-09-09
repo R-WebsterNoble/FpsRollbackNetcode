@@ -18,6 +18,10 @@ constexpr static float TICKS_DURATION = 1.0f/TICKS_PER_SECOND;
 
 constexpr static int BUFFER_SIZE = 10000;
 
+constexpr float ACCELERATION = 20.0f;// 0.01f / 1000.0f;
+
+constexpr float MAX_VELOCITY = 2.0f;// 0.002f;
+
 // enum EPlayerActionFlag : uint32
 // {
 // 	None = 0,
